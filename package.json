@@ -4,10 +4,10 @@
   "description": "NodeJs implementation of Guardian pan-domain auth verification",
   "main": "lib/pandaAuth.js",
   "directories": {
-    "test": "test"
+    "test": "spec"
   },
   "scripts": {
-    "test": "jasmine test/tests.js"
+    "test": "node node_modules/jasmine-node/lib/jasmine-node/cli.js spec"
   },
   "repository": {
     "type": "git",
@@ -28,6 +28,7 @@
   "homepage": "https://github.com/guardian/pan-domain-node",
   "dependencies": {
     "aws-sdk": "^2.1.40",
+    "jasmine-node": "^1.14.5",
     "q": "^1.4.1",
     "qs": "^4.0.0"
   }
