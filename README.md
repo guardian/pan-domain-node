@@ -10,7 +10,7 @@ NodeJs implementation of pan-domain auth verification
 
 Setup:
 
-```
+```JavaScript
 // app.js
 
 var PanDomainNode = require('pan-domain-node');
@@ -24,7 +24,7 @@ PanDomainNode.setAwsBucketDetails('MY_AWS_BUCKET', 'KEY_TO_MY_AWS_PUBLIC_KEY');
 
 As [express.js](http://expressjs.com/) / connect style middleware:
 
-```
+```JavaScript
 // index.js
 
 var pandaAuthMiddleware = require('pan-domain-node').Middleware;
@@ -37,7 +37,7 @@ router.get('/', pandaAuthMiddleware, function (req, res, next) {
 
 Error handling (see [express.js docs](http://expressjs.com/guide/error-handling.html)):
 
-```
+```JavaScript
 // app.js
 
 var PANDA_AUTH_ERROR_MESSAGE = PanDomainNode.PandaAuthFailedErrorMessage;
