@@ -24,7 +24,7 @@ describe('jasmine-node', function(){
         expect(decodedData.length).toEqual(239);
 
         var parsedDecodedData = Qs.parse(decodedData);
-
+console.log(parsedDecodedData)
         expect(parsedDecodedData.firstName).toBe('Chris');
         expect(parsedDecodedData.lastName).toBe('Finch');
     });
