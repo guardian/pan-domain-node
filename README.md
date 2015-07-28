@@ -15,9 +15,9 @@ Setup:
 
 var PanDomainNode = require('pan-domain-node');
 
-PanDomainNode.setLogLevel('info');
+PanDomainNode.setLogLevel('info'); // Defaults to 'error'
 
-PanDomainNode.setAwsBucketDetails('MY_AWS_BUCKET', 'KEY_TO_MY_AWS_PUBLIC_KEY');
+PanDomainNode.setAwsBucketDetails('MY_AWS_BUCKET', 'KEY_TO_MY_AWS_PUBLIC_KEY'); // Defaults to local GU settings
 
 ```
 
@@ -39,7 +39,7 @@ Error handling (see (express.js docs)[http://expressjs.com/guide/error-handling.
 ```
 // app.js
 
-var PANDA_AUTH_ERROR_MESSAGE = PanDomainNode.PandaAuthFailedErrorMessage;
+var PANDA_AUTH_ERROR_MESSAGE = PanDomainNode.PandaAuthFailedErrorMessage; // 'panda-auth-failed'
 
 app.use(function(err, req, res, next) {
     if (err === PANDA_AUTH_ERROR_MESSAGE) {
