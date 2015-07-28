@@ -28,6 +28,7 @@
   "homepage": "https://github.com/guardian/pan-domain-node",
   "dependencies": {
     "aws-sdk": "^2.1.40",
+    "colors": "^1.1.2",
     "jasmine-node": "^1.14.5",
     "q": "^1.4.1",
     "qs": "^4.0.0"
