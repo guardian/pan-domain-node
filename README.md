@@ -31,6 +31,8 @@ var pandaAuthMiddleware = require('pan-domain-node').Middleware;
 
 router.get('/', pandaAuthMiddleware, function (req, res, next) {
     var guardianUser = req.guUser;
+
+    // Do stuff with a verified user logged in
 });
 
 ```
