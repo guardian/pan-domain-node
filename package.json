@@ -25,5 +25,10 @@
   "bugs": {
     "url": "https://github.com/guardian/pan-domain-node/issues"
   },
-  "homepage": "https://github.com/guardian/pan-domain-node"
+  "homepage": "https://github.com/guardian/pan-domain-node",
+  "dependencies": {
+    "aws-sdk": "^2.1.40",
+    "q": "^1.4.1",
+    "qs": "^4.0.0"
+  }
 }
