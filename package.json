@@ -1,0 +1,29 @@
+{
+  "name": "pan-domain-node",
+  "version": "0.0.1",
+  "description": "NodeJs implementation of Guardian pan-domain auth verification",
+  "main": "lib/pandaAuth.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "jasmine test/tests.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/guardian/pan-domain-node.git"
+  },
+  "keywords": [
+    "auth",
+    "guardian"
+  ],
+  "author": {
+    "name": "Chris Finch",
+    "email": "chris.finch@guardian.co.uk"
+  },
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/guardian/pan-domain-node/issues"
+  },
+  "homepage": "https://github.com/guardian/pan-domain-node"
+}
