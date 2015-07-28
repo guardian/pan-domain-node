@@ -2,7 +2,7 @@ var Qs = require('qs');
 
 var PandaUtils = require('./../lib/pandaUtils');
 
-var cookieFixture = require('./fixtures/sampleCookie').cookie;
+var cookieFixture = require('./fixtures/sampleCookie').cookie2;
 var samplePublicKey = require('./fixtures/samplePublicKey').samplePublicKey;
 
 describe('jasmine-node', function(){
@@ -24,7 +24,7 @@ describe('jasmine-node', function(){
         expect(decodedData.length).toEqual(239);
 
         var parsedDecodedData = Qs.parse(decodedData);
-console.log(parsedDecodedData)
+
         expect(parsedDecodedData.firstName).toBe('Chris');
         expect(parsedDecodedData.lastName).toBe('Finch');
     });
