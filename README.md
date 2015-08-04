@@ -13,12 +13,9 @@ Setup:
 ```JavaScript
 // app.js
 
-var PanDomainNode = require('pan-domain-node');
+var PanDomainNode = new require('pan-domain-node')('MY_APPLICATION_DOMAIN');
 
 PanDomainNode.setLogLevel('info'); // Defaults to 'error'
-
-// Defaults to local GU settings
-PanDomainNode.setAwsBucketDetails('MY_AWS_BUCKET', 'KEY_TO_MY_AWS_PUBLIC_KEY');
 
 ```
 
