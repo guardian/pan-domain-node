@@ -2,16 +2,17 @@ var Qs = require('qs');
 
 var PandaUtils = require('./../lib/pandaUtils');
 
-var cookieFixture = require('./fixtures/sampleCookie').cookie2;
+var cookieFixture = require('./fixtures/sampleCookie').cookie;
 var samplePublicKey = require('./fixtures/samplePublicKey').samplePublicKey;
 
 describe('jasmine-node', function(){
 
     var parsedCookie;
+    beforeEach(function () {
+        parsedCookie = PandaUtils.parseCookie(cookieFixture);
+    });
 
     it('should parse a cookie', function () {
-        parsedCookie = PandaUtils.parseCookie(cookieFixture);
-
         expect(parsedCookie.hasOwnProperty('data')).toBe(true);
         expect(parsedCookie.data.length).toEqual(320);
         expect(parsedCookie.hasOwnProperty('signature')).toBe(true);
