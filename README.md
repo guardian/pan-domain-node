@@ -24,7 +24,7 @@ As [express.js](http://expressjs.com/) / connect style middleware:
 ```JavaScript
 // index.js
 
-var pandaAuthMiddleware = require('pan-domain-node').Middleware;
+var pandaAuthMiddleware = PanDomainNode.Middleware;
 
 router.get('/', pandaAuthMiddleware, function (req, res, next) {
     var guardianUser = req.guUser;
