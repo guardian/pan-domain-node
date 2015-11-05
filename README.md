@@ -5,6 +5,9 @@ NodeJs implementation of pan-domain auth verification
 
 `npm install --save git://github.com/guardian/pan-domain-node.git`
 
+## Dependencies
+
+`pan-domain-node` requires access to cookies, if your application is not using them already you should install `cookie-parser`.
 
 ## Usage
 
