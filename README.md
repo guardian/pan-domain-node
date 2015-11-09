@@ -53,3 +53,17 @@ app.use(function(err, req, res, next) {
     };
 });
 ```
+
+## Logging
+
+By default `pan-domain-node` logs to `console`. You can configure a custom logger
+
+```js
+function customLogger (level, message) {
+	// level is either 'error',  'info', 'debug'
+}
+
+PanDomainNode.setLogger(customLogger);
+```
+
+This allow for instance to send logs to [winston](https://github.com/winstonjs/winston) or [bunyan](https://github.com/trentm/node-bunyan).
