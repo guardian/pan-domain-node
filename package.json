@@ -1,6 +1,6 @@
 {
   "name": "pan-domain-node",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "NodeJs implementation of Guardian pan-domain auth verification",
   "main": "lib/pandaAuth.js",
   "directories": {
@@ -27,8 +27,8 @@
   },
   "homepage": "https://github.com/guardian/pan-domain-node",
   "dependencies": {
-    "aws-sdk": "^2.2.15",
     "colors": "^1.1.2",
+    "pan-domain-public-keys": "^1.2.0",
     "q": "^1.4.1",
     "qs": "^5.2.0"
   },
