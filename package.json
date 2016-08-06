@@ -1,13 +1,17 @@
 {
   "name": "pan-domain-node",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "NodeJs implementation of Guardian pan-domain auth verification",
   "main": "lib/pandaAuth.js",
   "directories": {
     "test": "spec"
   },
   "scripts": {
-    "test": "node node_modules/jasmine-node/lib/jasmine-node/cli.js spec"
+    "ava": "ava",
+    "lint": "eslint lib spec",
+    "test": "npm run ava",
+    "posttest": "npm run lint",
+    "dev": "npm run ava -- --watch"
   },
   "repository": {
     "type": "git",
@@ -26,13 +30,21 @@
     "url": "https://github.com/guardian/pan-domain-node/issues"
   },
   "homepage": "https://github.com/guardian/pan-domain-node",
-  "dependencies": {
-    "colors": "^1.1.2",
-    "pan-domain-public-keys": "^1.2.0",
-    "q": "^1.4.1",
-    "qs": "^5.2.0"
-  },
   "devDependencies": {
-    "jasmine-node": "^1.14.5"
+    "ava": "^0.15.2",
+    "babel-preset-es2015-rollup": "^1.1.1",
+    "babel-register": "^6.11.6",
+    "eslint": "^3.2.2",
+    "pan-domain-public-keys": "^1.2.0",
+    "pan-domain-validate-user": "^1.0.2",
+    "rollup": "^0.34.4",
+    "rollup-plugin-babel": "^2.6.1",
+    "rollup-plugin-commonjs": "^3.3.1",
+    "rollup-plugin-node-resolve": "^2.0.0"
+  },
+  "ava": {
+    "require": [
+      "babel-register"
+    ]
   }
 }
