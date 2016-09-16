@@ -1,13 +1,23 @@
 {
   "name": "pan-domain-node",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "NodeJs implementation of Guardian pan-domain auth verification",
-  "main": "lib/pandaAuth.js",
+  "main": "dist/panda.cjs.js",
+  "jsnext:main": "dist/panda.es6.js",
   "directories": {
     "test": "spec"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "test": "node node_modules/jasmine-node/lib/jasmine-node/cli.js spec"
+    "compile": "rollup -c rollup.config.cjs.js && rollup -c rollup.config.es6.js",
+    "ava": "ava",
+    "lint": "eslint lib spec",
+    "test": "npm run ava",
+    "posttest": "npm run lint",
+    "dev": "npm run ava -- --watch",
+    "prepublish": "npm test && npm run compile"
   },
   "repository": {
     "type": "git",
@@ -26,13 +36,22 @@
     "url": "https://github.com/guardian/pan-domain-node/issues"
   },
   "homepage": "https://github.com/guardian/pan-domain-node",
-  "dependencies": {
-    "colors": "^1.1.2",
-    "pan-domain-public-keys": "^1.2.0",
-    "q": "^1.4.1",
-    "qs": "^5.2.0"
-  },
   "devDependencies": {
-    "jasmine-node": "^1.14.5"
+    "ava": "^0.16.0",
+    "babel-preset-es2015": "^6.14.0",
+    "babel-preset-es2015-rollup": "1.2.0",
+    "babel-register": "^6.14.0",
+    "eslint": "^3.5.0",
+    "pan-domain-public-keys": "^1.2.0",
+    "pan-domain-validate-user": "^1.0.2",
+    "rollup": "^0.35.11",
+    "rollup-plugin-babel": "^2.6.1",
+    "rollup-plugin-commonjs": "^4.1.0",
+    "rollup-plugin-node-resolve": "^2.0.0"
+  },
+  "ava": {
+    "require": [
+      "babel-register"
+    ]
   }
 }
