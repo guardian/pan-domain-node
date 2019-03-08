@@ -1,14 +1,8 @@
 {
   "name": "pan-domain-node",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "NodeJs implementation of Guardian pan-domain auth verification",
-  "main": "lib/pandaAuth.js",
-  "directories": {
-    "test": "spec"
-  },
-  "scripts": {
-    "test": "node node_modules/jasmine-node/lib/jasmine-node/cli.js spec"
-  },
+  "main": "dist/api.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/guardian/pan-domain-node.git"
@@ -18,21 +12,27 @@
     "guardian"
   ],
   "author": {
-    "name": "Chris Finch",
-    "email": "chris.finch@guardian.co.uk"
+    "name": "Guardian Editorial Tools Developers",
+    "email": "editorial.tools.dev@guardian.co.uk"
   },
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/guardian/pan-domain-node/issues"
   },
   "homepage": "https://github.com/guardian/pan-domain-node",
-  "dependencies": {
-    "colors": "^1.1.2",
-    "pan-domain-public-keys": "^1.2.0",
-    "q": "^1.4.1",
-    "qs": "^5.2.0"
-  },
   "devDependencies": {
-    "jasmine-node": "^1.14.5"
+    "@types/cookie": "^0.3.2",
+    "@types/iniparser": "0.0.29",
+    "@types/node": "^11.10.5",
+    "@types/qs": "^6.5.2",
+    "typescript": "^3.3.3333"
+  },
+  "dependencies": {
+    "cookie": "^0.3.1",
+    "iniparser": "^1.0.5",
+    "qs": "^6.6.0"
+  },
+  "scripts": {
+    "build": "tsc"
   }
 }
