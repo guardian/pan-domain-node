@@ -1,7 +1,7 @@
 # pan-domain-node
 NodeJs implementation of pan-domain auth verification
 
-**NB: this library is deprecated. Please use [@guardian/pan-domain-node](https://github.com/guardian/pan-domain-authentication/#to-verify-login-in-nodejs) instead**
+**NB: this library is deprecated. Please use [@guardian/pan-domain-authentication](https://github.com/guardian/pan-domain-authentication/#to-verify-login-in-nodejs) instead**
 
 ## Installation
 
