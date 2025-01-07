@@ -5,7 +5,7 @@ application can authenticate users against an OAuth provider and store the authe
 Each application can read this cookie and check if the user is allowed in the specific application and allow access accordingly.
 
 This means that users are only prompted to provide authentication credentials once across the domain and any inter-app
-interactions (e.g javascript cross-origin requests) can be easily secured.
+interactions (e.g javascript Cross-Origin requests) can be easily secured.
 
 ## What's provided
 
