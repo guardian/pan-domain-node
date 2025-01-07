@@ -32,7 +32,7 @@
     "typescript": "^3.9.7"
   },
   "dependencies": {
-    "cookie": "^0.4.1",
+    "cookie": "^0.7.0",
     "iniparser": "^1.0.5"
   },
   "scripts": {
