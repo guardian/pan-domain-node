@@ -1,4 +1,4 @@
-# Pan Domain Authentication 
+# Pan Domain Node 
 
 Pan domain authentication provides distributed authentication for multiple webapps running in the same domain. Each
 application can authenticate users against an OAuth provider and store the authentication information in a common cookie.
