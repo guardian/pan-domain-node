@@ -13,9 +13,7 @@ jobs:
       DEBUG: true
       ORG: guardian
       SKIP_NODE: false
-      NODE_VERSION_FILE: ./pan-domain-node/.nvmrc
-      EXCLUDE: hmac-examples
-      
-      
+      NODE_VERSION_FILE: .nvmrc
+
     secrets:
        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
