@@ -1,4 +1,0 @@
-name: pandomainexample
-mappings:
-  - prefix: example
-    port: 9500

@@ -14,17 +14,13 @@ jobs:
       id-token: write
       pull-requests: write
 
-    defaults:
-      run:
-        working-directory: pan-domain-node
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v3
         with:
-          node-version-file: "pan-domain-node/.nvmrc"
+          node-version-file: ".nvmrc"
           cache: npm
-          cache-dependency-path: "pan-domain-node/package-lock.json"
+          cache-dependency-path: "package-lock.json"
 
       - name: Install
         run: npm ci
@@ -54,7 +50,6 @@ jobs:
           publish: npx changeset publish
           title: "🦋 Release package updates"
           commit: "Bump package version"
-          cwd: "pan-domain-node"
           setupGitUser: false
 
         env:
