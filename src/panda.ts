@@ -1,7 +1,7 @@
 import * as cookie from 'cookie';
 
 import {parseCookie, parseUser, sign, verifySignature} from './utils';
-import {User, AuthenticationResult, ValidateUserFn} from './api';
+import {User, AuthenticationResult, ValidateUserFn, gracePeriodInMillis} from './api';
 import { fetchPublicKey, PublicKeyHolder } from './fetch-public-key';
 
 export function createCookie(user: User, privateKey: string): string {
@@ -48,13 +48,19 @@ export function verifyUser(pandaCookie: string | undefined, publicKey: string, c
         const isExpired = user.expires < currentTimestampInMilliseconds;
 
         if (isExpired) {
-            return {
-                // For now, I'm treating all expired sessions as
-                // unauthenticated, as per current behaviour.
-                // This will change when I implement the grace period.
-                success: false,
-                reason: 'expired-cookie'
-            };
+            const twentyFourHoursAgo = currentTimestampInMilliseconds - gracePeriodInMillis;
+            if (user.expires < twentyFourHoursAgo) {
+                return {
+                    success: false,
+                    reason: 'expired-cookie'
+                };
+            } else {
+                return {
+                    success: true,
+                    shouldRefreshCredentials: true,
+                    user
+                }
+            }
         }
 
         if (!validateUser(user)) {
@@ -67,9 +73,7 @@ export function verifyUser(pandaCookie: string | undefined, publicKey: string, c
 
         return {
             success: true,
-            // Currently always false.
-            // When I implement grace period, we will set this appropriately.
-            suggestCredentialsRefresh: false,
+            shouldRefreshCredentials: false,
             user
         };
     } catch (error) {

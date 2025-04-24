@@ -1,4 +1,11 @@
-import {guardianValidation, UnauthenticatedResult, UnauthorisedResult, User} from '../src/api';
+import {
+    Authenticated,
+    gracePeriodInMillis,
+    guardianValidation,
+    Unauthenticated,
+    Unauthorised,
+    User
+} from '../src/api';
 import { verifyUser, createCookie, PanDomainAuthentication } from '../src/panda';
 import { fetchPublicKey } from '../src/fetch-public-key';
 
@@ -33,11 +40,10 @@ describe('verifyUser', function () {
         });
     });
 
-    test("fail to authenticate if cookie is expired", () => {
+    test("fail to authenticate if cookie expired and we're outside the grace period", () => {
         // Cookie expires at epoch time 1234
-        const oneSecondAfterCookieExpiry = new Date(1234 + 1000);
-        expect(oneSecondAfterCookieExpiry.getTime()).toBe(2234);
-        expect(verifyUser(sampleCookie, publicKey, oneSecondAfterCookieExpiry, guardianValidation)).toStrictEqual({
+        const afterEndOfGracePeriod = new Date(1234 + gracePeriodInMillis + 1)
+        expect(verifyUser(sampleCookie, publicKey, afterEndOfGracePeriod, guardianValidation)).toStrictEqual({
             success: false,
             reason: 'expired-cookie'
         });
@@ -59,9 +65,20 @@ describe('verifyUser', function () {
     test("authenticate if the cookie and user are valid", () => {
         expect(verifyUser(sampleCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual({
             success: true,
-            suggestCredentialsRefresh: false,
+            // Cookie is not expired so no need to refresh credentials
+            shouldRefreshCredentials: false,
             user: parseUser(parseCookie(sampleCookie).data)
         });
+    });
+
+    test("authenticate with shouldRefreshCredentials if cookie expired but we're within the grace period", () => {
+        const beforeEndOfGracePeriod = new Date(1234 + gracePeriodInMillis - 1);
+        const expected: Authenticated = {
+            success: true,
+            user: parseUser(parseCookie(sampleCookie).data),
+            shouldRefreshCredentials: true
+        }
+        expect(verifyUser(sampleCookie, publicKey, beforeEndOfGracePeriod, guardianValidation)).toStrictEqual(expected);
     });
 });
 
@@ -147,20 +164,42 @@ describe('panda class', function () {
     it('should authenticate if cookie and user are valid', async () => {
       jest.setSystemTime(100);
       const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', (u)=> true);
-      const { success } = await panda.verify(`cookiename=${sampleCookie}`);
+      const authenticationResult = await panda.verify(`cookiename=${sampleCookie}`);
 
-      expect(success).toBe(true);
+      expect(authenticationResult).toStrictEqual({
+          success: true,
+          // Cookie is not expired
+          shouldRefreshCredentials: false,
+          user: parseUser(parseCookie(sampleCookie).data)
+      });
     });
 
-    it('should fail to authenticated if expired', async () => {
-      jest.setSystemTime(10_000);
+    it('should fail to authenticate if cookie expired and we\'re outside the grace period', async () => {
+      // Cookie expiry is 1234
+      const afterEndOfGracePeriodEpochMillis = 1234 + gracePeriodInMillis + 1
+      jest.setSystemTime(afterEndOfGracePeriodEpochMillis);
 
       const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', (u)=> true);
-      const authenticatedResult = await panda.verify(`cookiename=${sampleCookie}`);
+      const authenticationResult = await panda.verify(`cookiename=${sampleCookie}`);
 
-      expect(authenticatedResult).toStrictEqual({
+      expect(authenticationResult).toStrictEqual({
           success: false,
           reason: 'expired-cookie'
+      });
+    });
+
+    it('authenticate with shouldRefreshCredentials if we\'re within the grace period', async () => {
+      // Cookie expiry is 1234
+      const beforeEndOfGracePeriodEpochMillis = 1234 + gracePeriodInMillis - 1;
+      jest.setSystemTime(beforeEndOfGracePeriodEpochMillis);
+
+      const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', (u)=> true);
+      const authenticationResult = await panda.verify(`cookiename=${sampleCookie}`);
+
+      expect(authenticationResult).toStrictEqual({
+          success: true,
+          shouldRefreshCredentials: true,
+          user: parseUser(parseCookie(sampleCookie).data)
       });
     });
 

@@ -1,23 +1,23 @@
 export { PanDomainAuthentication } from './panda';
 
-export type AuthenticatedResult = {
+export type Authenticated = {
     success: true,
-    suggestCredentialsRefresh: boolean,
+    shouldRefreshCredentials: boolean,
     user: User
 }
-export type UnauthenticatedResult = {
+export type Unauthenticated = {
     success: false,
-    reason: 'no-cookie' | 'bad-cookie' | 'expired-cookie' | 'bad-user' | 'unknown'
+    reason: 'no-cookie' | 'bad-cookie' | 'expired-cookie' | 'unknown'
 }
-export type UnauthorisedResult = {
+export type Unauthorised = {
     success: false,
     reason: 'bad-user',
     user: User
 }
 
-export type AuthenticationResult = AuthenticatedResult
-    | UnauthenticatedResult
-    | UnauthorisedResult
+export type AuthenticationResult = Authenticated
+    | Unauthenticated
+    | Unauthorised
 
 export interface User {
     firstName: string,
@@ -29,6 +29,8 @@ export interface User {
     expires: number,
     multifactor: boolean
 }
+
+export const gracePeriodInMillis = 24 * 60 * 60 * 1000;
 
 export type ValidateUserFn = (user: User) => boolean;
 
