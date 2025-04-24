@@ -34,9 +34,10 @@ describe('verifyUser', function () {
     });
 
     test("fail to authenticate if cookie is expired", () => {
-        const someTimeInTheFuture = new Date(5678);
-        expect(someTimeInTheFuture.getTime()).toBe(5678);
-        expect(verifyUser(sampleCookie, publicKey, someTimeInTheFuture, guardianValidation)).toStrictEqual({
+        // Cookie expires at epoch time 1234
+        const oneSecondAfterCookieExpiry = new Date(1234 + 1000);
+        expect(oneSecondAfterCookieExpiry.getTime()).toBe(2234);
+        expect(verifyUser(sampleCookie, publicKey, oneSecondAfterCookieExpiry, guardianValidation)).toStrictEqual({
             success: false,
             reason: 'expired-cookie'
         });
