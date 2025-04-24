@@ -1,11 +1,23 @@
 export { PanDomainAuthentication } from './panda';
 
-export enum AuthenticationStatus {
-    INVALID_COOKIE = 'Invalid Cookie',
-    EXPIRED = 'Expired',
-    NOT_AUTHORISED = 'Not Authorised',
-    AUTHORISED = 'Authorised'
+export type AuthenticatedResult = {
+    success: true,
+    suggestCredentialsRefresh: boolean,
+    user: User
 }
+export type UnauthenticatedResult = {
+    success: false,
+    reason: 'no-cookie' | 'bad-cookie' | 'expired-cookie' | 'bad-user' | 'unknown'
+}
+export type UnauthorisedResult = {
+    success: false,
+    reason: 'bad-user',
+    user: User
+}
+
+export type AuthenticationResult = AuthenticatedResult
+    | UnauthenticatedResult
+    | UnauthorisedResult
 
 export interface User {
     firstName: string,
@@ -16,11 +28,6 @@ export interface User {
     authenticatedIn: string[],
     expires: number,
     multifactor: boolean
-}
-
-export interface AuthenticationResult {
-    status: AuthenticationStatus,
-    user?: User 
 }
 
 export type ValidateUserFn = (user: User) => boolean;

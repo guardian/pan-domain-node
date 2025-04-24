@@ -1,7 +1,7 @@
 import * as cookie from 'cookie';
 
 import {parseCookie, parseUser, sign, verifySignature} from './utils';
-import {AuthenticationStatus, User, AuthenticationResult, ValidateUserFn} from './api';
+import {User, AuthenticationResult, ValidateUserFn} from './api';
 import { fetchPublicKey, PublicKeyHolder } from './fetch-public-key';
 
 export function createCookie(user: User, privateKey: string): string {
@@ -25,14 +25,20 @@ export function createCookie(user: User, privateKey: string): string {
 }
 
 export function verifyUser(pandaCookie: string | undefined, publicKey: string, currentTime: Date, validateUser: ValidateUserFn): AuthenticationResult {
-    if(!pandaCookie) {
-        return { status: AuthenticationStatus.INVALID_COOKIE };
+    if (!pandaCookie) {
+        return {
+            success: false,
+            reason: 'no-cookie'
+        };
     }
 
     const { data, signature } = parseCookie(pandaCookie);
 
-    if(!verifySignature(data, signature, publicKey)) {
-        return { status: AuthenticationStatus.INVALID_COOKIE };
+    if (!verifySignature(data, signature, publicKey)) {
+        return {
+            success: false,
+            reason: 'bad-cookie'
+        };
     }
 
     const currentTimestampInMilliseconds = currentTime.getTime();
@@ -41,18 +47,37 @@ export function verifyUser(pandaCookie: string | undefined, publicKey: string, c
         const user: User = parseUser(data);
         const isExpired = user.expires < currentTimestampInMilliseconds;
 
-        if(isExpired) {
-            return { status: AuthenticationStatus.EXPIRED, user };
+        if (isExpired) {
+            return {
+                // For now, I'm treating all expired sessions as
+                // unauthenticated, as per current behaviour.
+                // This will change when I implement the grace period.
+                success: false,
+                reason: 'expired-cookie'
+            };
         }
 
-        if(!validateUser(user)) {
-            return { status: AuthenticationStatus.NOT_AUTHORISED, user };
+        if (!validateUser(user)) {
+            return {
+                success: false,
+                reason: 'bad-user',
+                user
+            };
         }
 
-        return { status: AuthenticationStatus.AUTHORISED, user };
-    } catch(error) {
+        return {
+            success: true,
+            // Currently always false.
+            // When I implement grace period, we will set this appropriately.
+            suggestCredentialsRefresh: false,
+            user
+        };
+    } catch (error) {
         console.error(error);
-        return { status: AuthenticationStatus.INVALID_COOKIE };
+        return {
+            success: false,
+            reason: 'unknown'
+        };
     }
 }
 

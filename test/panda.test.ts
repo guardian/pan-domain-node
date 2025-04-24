@@ -1,4 +1,4 @@
-import {guardianValidation, AuthenticationStatus, User} from '../src/api';
+import {guardianValidation, UnauthenticatedResult, UnauthorisedResult, User} from '../src/api';
 import { verifyUser, createCookie, PanDomainAuthentication } from '../src/panda';
 import { fetchPublicKey } from '../src/fetch-public-key';
 
@@ -9,37 +9,58 @@ import {
     publicKey,
     privateKey
 } from './fixtures';
-import {decodeBase64} from "../src/utils";
+import {decodeBase64, parseCookie, parseUser} from "../src/utils";
 
 jest.mock('../src/fetch-public-key');
 jest.useFakeTimers('modern');
 
 describe('verifyUser', function () {
 
-    test("return invalid cookie if missing", () => {
-        expect(verifyUser(undefined, "", new Date(0), guardianValidation).status).toBe(AuthenticationStatus.INVALID_COOKIE);
+    test("fail to authenticate if cookie is missing", () => {
+        expect(verifyUser(undefined, "", new Date(0), guardianValidation)).toStrictEqual({
+            success: false,
+            reason: 'no-cookie'
+        });
     });
 
-    test("return invalid cookie for a malformed signature", () => {
+    test("fail to authenticate if signature is malformed", () => {
         const [data, signature] = sampleCookie.split(".");
         const testCookie = data + ".1234";
 
-        expect(verifyUser(testCookie, publicKey, new Date(0), guardianValidation).status).toBe(AuthenticationStatus.INVALID_COOKIE);
+        expect(verifyUser(testCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual({
+            success: false,
+            reason: 'bad-cookie'
+        });
     });
 
-    test("return expired", () => {
+    test("fail to authenticate if cookie is expired", () => {
         const someTimeInTheFuture = new Date(5678);
         expect(someTimeInTheFuture.getTime()).toBe(5678);
-        expect(verifyUser(sampleCookie, publicKey, someTimeInTheFuture, guardianValidation).status).toBe(AuthenticationStatus.EXPIRED);
+        expect(verifyUser(sampleCookie, publicKey, someTimeInTheFuture, guardianValidation)).toStrictEqual({
+            success: false,
+            reason: 'expired-cookie'
+        });
     });
 
-    test("return not authenticated if user fails validation function", () => {
-        expect(verifyUser(sampleCookieWithoutMultifactor, publicKey, new Date(0), guardianValidation).status).toBe(AuthenticationStatus.NOT_AUTHORISED);
-        expect(verifyUser(sampleNonGuardianCookie, publicKey, new Date(0), guardianValidation).status).toBe(AuthenticationStatus.NOT_AUTHORISED);
+    test("fail to authenticate if user fails validation function", () => {
+        expect(verifyUser(sampleCookieWithoutMultifactor, publicKey, new Date(0), guardianValidation)).toStrictEqual({
+            success: false,
+            reason: 'bad-user',
+            user: parseUser(parseCookie(sampleCookieWithoutMultifactor).data)
+        });
+        expect(verifyUser(sampleNonGuardianCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual({
+            success: false,
+            reason: 'bad-user',
+            user: parseUser(parseCookie(sampleNonGuardianCookie).data)
+        });
     });
 
-    test("return authenticated", () => {
-        expect(verifyUser(sampleCookie, publicKey, new Date(0), guardianValidation).status).toBe(AuthenticationStatus.AUTHORISED);
+    test("authenticate if the cookie and user are valid", () => {
+        expect(verifyUser(sampleCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual({
+            success: true,
+            suggestCredentialsRefresh: false,
+            user: parseUser(parseCookie(sampleCookie).data)
+        });
     });
 });
 
@@ -122,30 +143,37 @@ describe('panda class', function () {
       (fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>).mockResolvedValue({ key: publicKey, lastUpdated: new Date() });
     });
 
-    it('should return authenticated if valid', async () => {
+    it('should authenticate if cookie and user are valid', async () => {
       jest.setSystemTime(100);
       const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', (u)=> true);
-      const { status } = await panda.verify(`cookiename=${sampleCookie}`);
+      const { success } = await panda.verify(`cookiename=${sampleCookie}`);
 
-      expect(status).toBe(AuthenticationStatus.AUTHORISED);
+      expect(success).toBe(true);
     });
 
-    it('should return expired if expired', async () => {
+    it('should fail to authenticated if expired', async () => {
       jest.setSystemTime(10_000);
 
       const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', (u)=> true);
-      const { status } = await panda.verify(`cookiename=${sampleCookie}`);
+      const authenticatedResult = await panda.verify(`cookiename=${sampleCookie}`);
 
-      expect(status).toBe(AuthenticationStatus.EXPIRED);
+      expect(authenticatedResult).toStrictEqual({
+          success: false,
+          reason: 'expired-cookie'
+      });
     });
 
-    it('should return not authenticated if validation fails', async () => {
+    it('should fail to authenticate if user is not valid', async () => {
       jest.setSystemTime(100);
 
       const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', guardianValidation);
-      const { status } = await panda.verify(`cookiename=${sampleNonGuardianCookie}`);
+      const authenticationResult = await panda.verify(`cookiename=${sampleNonGuardianCookie}`);
 
-      expect(status).toBe(AuthenticationStatus.NOT_AUTHORISED);
+      expect(authenticationResult).toStrictEqual({
+          success: false,
+          reason: 'bad-user',
+          user: parseUser(parseCookie(sampleNonGuardianCookie).data)
+      });
     });
 
   });
