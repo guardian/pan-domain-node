@@ -48,15 +48,15 @@ export function verifyUser(pandaCookie: string | undefined, publicKey: string, c
         };
     }
 
-    const currentTimestampInMilliseconds = currentTime.getTime();
+    const currentTimestampInMillis = currentTime.getTime();
 
     try {
         const user: User = parseUser(data);
-        const isExpired = user.expires < currentTimestampInMilliseconds;
+        const isExpired = user.expires < currentTimestampInMillis;
 
         if (isExpired) {
-            const twentyFourHoursAgo = currentTimestampInMilliseconds - gracePeriodInMillis;
-            if (user.expires < twentyFourHoursAgo) {
+            const gracePeriodEndsAtEpochTimeMillis = user.expires + gracePeriodInMillis;
+            if (gracePeriodEndsAtEpochTimeMillis < currentTimestampInMillis) {
                 return {
                     success: false,
                     reason: 'expired-cookie'
@@ -65,6 +65,7 @@ export function verifyUser(pandaCookie: string | undefined, publicKey: string, c
                 return {
                     success: true,
                     shouldRefreshCredentials: true,
+                    mustRefreshByEpochTimeMillis: gracePeriodEndsAtEpochTimeMillis,
                     user
                 }
             }

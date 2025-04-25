@@ -14,12 +14,20 @@ export { PanDomainAuthentication } from './panda';
 // `shouldRefreshCredentials`  [-false---][-true------------------------]
 export const gracePeriodInMillis = 24 * 60 * 60 * 1000;
 
+export type FreshlyAuthenticated = {
+    success: true,
+    // Our cookie hasn't yet expired, so this is false
+    shouldRefreshCredentials: false,
+    user: User
+}
 export type Authenticated = {
     success: true,
-    // This will be true if the user is in the grace period. It indicates that:
+    // `shouldRefreshCredentials: true` because the user is in the grace period.
+    // It indicates that:
     // - page endpoints that *can* refresh credentials should do so
     // - API endpoints that *cannot* refresh credentials should tell the user to do so
-    shouldRefreshCredentials: boolean,
+    shouldRefreshCredentials: true,
+    mustRefreshByEpochTimeMillis: number,
     user: User
 }
 export type Unauthenticated = {
@@ -32,7 +40,8 @@ export type Unauthorised = {
     user: User
 }
 
-export type AuthenticationResult = Authenticated
+export type AuthenticationResult = FreshlyAuthenticated
+    | Authenticated
     | Unauthenticated
     | Unauthorised
 

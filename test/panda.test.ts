@@ -102,7 +102,8 @@ describe('verifyUser', function () {
         const expected: Authenticated = {
             success: true,
             user: userFromCookie(sampleCookie),
-            shouldRefreshCredentials: true
+            shouldRefreshCredentials: true,
+            mustRefreshByEpochTimeMillis: 1234 + gracePeriodInMillis
         }
         expect(verifyUser(sampleCookie, publicKey, beforeEndOfGracePeriod, guardianValidation)).toStrictEqual(expected);
     });
@@ -222,11 +223,13 @@ describe('panda class', function () {
       const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', (u)=> true);
       const authenticationResult = await panda.verify(`cookiename=${sampleCookie}`);
 
-      expect(authenticationResult).toStrictEqual({
+      const expected: Authenticated = {
           success: true,
           shouldRefreshCredentials: true,
+          mustRefreshByEpochTimeMillis: 1234 + gracePeriodInMillis,
           user: userFromCookie(sampleCookie)
-      });
+      }
+      expect(authenticationResult).toStrictEqual(expected);
     });
 
     it('should fail to authenticate if user is not valid', async () => {
