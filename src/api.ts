@@ -1,7 +1,24 @@
 export { PanDomainAuthentication } from './panda';
 
+// We continue to consider the request authenticated for
+// a period of time after the cookie expiry. This is to allow
+// API requests which cannot directly send the user for re-auth to
+// indicate to the user that they must take some action to refresh their
+// credentials (usually, refreshing the page).
+
+// Panda cookie:               issued     expires
+//                             |          |
+//                             |--1 hour--|
+// Grace period:                          [------------- 24 hours ------]
+// `success`:         --false-][-true-----------------------------------][-false-------->
+// `shouldRefreshCredentials`  [-false---][-true------------------------]
+export const gracePeriodInMillis = 24 * 60 * 60 * 1000;
+
 export type Authenticated = {
     success: true,
+    // This will be true if the user is in the grace period. It indicates that:
+    // - page endpoints that *can* refresh credentials should do so
+    // - API endpoints that *cannot* refresh credentials should tell the user to do so
     shouldRefreshCredentials: boolean,
     user: User
 }
@@ -29,8 +46,6 @@ export interface User {
     expires: number,
     multifactor: boolean
 }
-
-export const gracePeriodInMillis = 24 * 60 * 60 * 1000;
 
 export type ValidateUserFn = (user: User) => boolean;
 
