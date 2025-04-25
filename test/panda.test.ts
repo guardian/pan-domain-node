@@ -22,6 +22,10 @@ jest.mock('../src/fetch-public-key');
 jest.useFakeTimers('modern');
 
 function userFromCookie(cookie: string): User {
+    // This function is only used to generate a `User` object from
+    // a well-formed text fixture cookie, in order to check that successful
+    // `AuthenticationResult`s have the right shape. As such we don't want
+    // to have to deal with the case of a bad cookie so we just cast to `ParsedCookie`.
     const parsedCookie = parseCookie(cookie) as ParsedCookie;
     return parseUser(parsedCookie.data);
 }
@@ -85,7 +89,7 @@ describe('verifyUser', function () {
         const slightlyBadCookie = sampleCookie.slice(0, -2);
         expect(verifyUser(slightlyBadCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
     });
-    
+
     test("authenticate if the cookie and user are valid", () => {
         expect(verifyUser(sampleCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual({
             success: true,
