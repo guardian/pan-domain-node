@@ -23,7 +23,7 @@ export type FreshlyAuthenticated = {
 export type Authenticated = {
     success: true,
     // Cookie has expired: we're in the grace period.
-    // So indicate that endpoints that can refresh credentials should do so,
+    // Endpoints that can refresh credentials should do so,
     // and those that cannot should tell the user to do so.
     shouldRefreshCredentials: true,
     mustRefreshByEpochTimeMillis: number,
