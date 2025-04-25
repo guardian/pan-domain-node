@@ -16,10 +16,15 @@ import {
     publicKey,
     privateKey
 } from './fixtures';
-import {decodeBase64, parseCookie, parseUser} from "../src/utils";
+import {decodeBase64, parseCookie, ParsedCookie, parseUser} from "../src/utils";
 
 jest.mock('../src/fetch-public-key');
 jest.useFakeTimers('modern');
+
+function userFromCookie(cookie: string): User {
+    const parsedCookie = parseCookie(cookie) as ParsedCookie;
+    return parseUser(parsedCookie.data);
+}
 
 describe('verifyUser', function () {
 
@@ -53,21 +58,42 @@ describe('verifyUser', function () {
         expect(verifyUser(sampleCookieWithoutMultifactor, publicKey, new Date(0), guardianValidation)).toStrictEqual({
             success: false,
             reason: 'bad-user',
-            user: parseUser(parseCookie(sampleCookieWithoutMultifactor).data)
+            user: userFromCookie(sampleCookieWithoutMultifactor)
         });
         expect(verifyUser(sampleNonGuardianCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual({
             success: false,
             reason: 'bad-user',
-            user: parseUser(parseCookie(sampleNonGuardianCookie).data)
+            user: userFromCookie(sampleNonGuardianCookie)
         });
     });
+
+    // Malformed cookie text (no dot)
+    test("fail to authenticate with bad-cookie reason if cookie is malformed", () => {
+        const expected: Unauthenticated = {
+            success: false,
+            reason: 'bad-cookie'
+        };
+        expect(verifyUser("complete garbage", publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
+    });
+
+    // Signature not valid
+    test("fail to authenticate with bad-cookie reason if signature is not valid", () => {
+        const expected: Unauthenticated = {
+            success: false,
+            reason: 'bad-cookie'
+        };
+        const slightlyBadCookie = sampleCookie.slice(0, -2);
+        expect(verifyUser(slightlyBadCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
+    });
+
+    // TODO: Missing or malformed user data
 
     test("authenticate if the cookie and user are valid", () => {
         expect(verifyUser(sampleCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual({
             success: true,
             // Cookie is not expired so no need to refresh credentials
             shouldRefreshCredentials: false,
-            user: parseUser(parseCookie(sampleCookie).data)
+            user: userFromCookie(sampleCookie)
         });
     });
 
@@ -75,7 +101,7 @@ describe('verifyUser', function () {
         const beforeEndOfGracePeriod = new Date(1234 + gracePeriodInMillis - 1);
         const expected: Authenticated = {
             success: true,
-            user: parseUser(parseCookie(sampleCookie).data),
+            user: userFromCookie(sampleCookie),
             shouldRefreshCredentials: true
         }
         expect(verifyUser(sampleCookie, publicKey, beforeEndOfGracePeriod, guardianValidation)).toStrictEqual(expected);
@@ -170,7 +196,7 @@ describe('panda class', function () {
           success: true,
           // Cookie is not expired
           shouldRefreshCredentials: false,
-          user: parseUser(parseCookie(sampleCookie).data)
+          user: userFromCookie(sampleCookie)
       });
     });
 
@@ -199,7 +225,7 @@ describe('panda class', function () {
       expect(authenticationResult).toStrictEqual({
           success: true,
           shouldRefreshCredentials: true,
-          user: parseUser(parseCookie(sampleCookie).data)
+          user: userFromCookie(sampleCookie)
       });
     });
 
@@ -212,7 +238,7 @@ describe('panda class', function () {
       expect(authenticationResult).toStrictEqual({
           success: false,
           reason: 'bad-user',
-          user: parseUser(parseCookie(sampleNonGuardianCookie).data)
+          user: userFromCookie(sampleNonGuardianCookie)
       });
     });
 

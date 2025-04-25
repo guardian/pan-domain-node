@@ -8,11 +8,15 @@ export function decodeBase64(data: string): string {
     return Buffer.from(data, 'base64').toString('utf8');
 }
 
+export type ParsedCookie = { data: string, signature: string };
 /**
  * Parse a pan-domain user cookie in to data and signature
  */
-export function parseCookie(cookie: string): { data: string, signature: string} {
+export function parseCookie(cookie: string): ParsedCookie | undefined {
     const splitCookie = cookie.split('\.');
+    if (splitCookie.length !== 2) {
+        return undefined;
+    }
     return {
         data: decodeBase64(splitCookie[0]),
         signature: splitCookie[1]

@@ -32,7 +32,14 @@ export function verifyUser(pandaCookie: string | undefined, publicKey: string, c
         };
     }
 
-    const { data, signature } = parseCookie(pandaCookie);
+    const parsedCookie = parseCookie(pandaCookie);
+    if (!parsedCookie) {
+        return {
+            success: false,
+            reason: 'bad-cookie'
+        };
+    }
+    const { data, signature } = parsedCookie;
 
     if (!verifySignature(data, signature, publicKey)) {
         return {
