@@ -16,16 +16,15 @@ export const gracePeriodInMillis = 24 * 60 * 60 * 1000;
 
 export type FreshlyAuthenticated = {
     success: true,
-    // Our cookie hasn't yet expired, so this is false
+    // Cookie has not expired yet, so no need to refresh credentials.
     shouldRefreshCredentials: false,
     user: User
 }
 export type Authenticated = {
     success: true,
-    // `shouldRefreshCredentials: true` because the user is in the grace period.
-    // It indicates that:
-    // - page endpoints that *can* refresh credentials should do so
-    // - API endpoints that *cannot* refresh credentials should tell the user to do so
+    // Cookie has expired: we're in the grace period.
+    // So indicate that endpoints that can refresh credentials should do so,
+    // and those that cannot should tell the user to do so.
     shouldRefreshCredentials: true,
     mustRefreshByEpochTimeMillis: number,
     user: User
