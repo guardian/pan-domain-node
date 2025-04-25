@@ -85,9 +85,7 @@ describe('verifyUser', function () {
         const slightlyBadCookie = sampleCookie.slice(0, -2);
         expect(verifyUser(slightlyBadCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
     });
-
-    // TODO: Missing or malformed user data
-
+    
     test("authenticate if the cookie and user are valid", () => {
         expect(verifyUser(sampleCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual({
             success: true,
