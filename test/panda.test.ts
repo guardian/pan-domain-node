@@ -71,7 +71,6 @@ describe('verifyUser', function () {
         });
     });
 
-    // Malformed cookie text (no dot)
     test("fail to authenticate with bad-cookie reason if cookie is malformed", () => {
         const expected: Unauthenticated = {
             success: false,
@@ -80,7 +79,6 @@ describe('verifyUser', function () {
         expect(verifyUser("complete garbage", publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
     });
 
-    // Signature not valid
     test("fail to authenticate with bad-cookie reason if signature is not valid", () => {
         const expected: Unauthenticated = {
             success: false,
