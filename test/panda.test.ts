@@ -201,6 +201,19 @@ describe('panda class', function () {
       });
     });
 
+    it('should authenticate if cookie and user are valid when multiple cookies are passed', async () => {
+      jest.setSystemTime(100);
+      const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', (u)=> true);
+      const authenticationResult = await panda.verify(`a=blah; b=stuff; cookiename=${sampleCookie}; c=4958345`);
+
+      expect(authenticationResult).toStrictEqual({
+          success: true,
+          // Cookie is not expired
+          shouldRefreshCredentials: false,
+          user: userFromCookie(sampleCookie)
+      });
+    });
+
     it('should fail to authenticate if cookie expired and we\'re outside the grace period', async () => {
       // Cookie expiry is 1234
       const afterEndOfGracePeriodEpochMillis = 1234 + gracePeriodInMillis + 1
@@ -245,6 +258,59 @@ describe('panda class', function () {
       });
     });
 
+    it('should fail to authenticate if there is no cookie with the correct name', async () => {
+      jest.setSystemTime(100);
+
+      const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', guardianValidation);
+      const authenticationResult = await panda.verify(`wrongcookiename=${sampleNonGuardianCookie}`);
+
+      const expected: Unauthenticated = {
+          success: false,
+          reason: "no-cookie"
+      };
+      expect(authenticationResult).toStrictEqual(expected);
+    });
+
+    it('should fail to authenticate if the cookie request header is malformed', async () => {
+      jest.setSystemTime(100);
+
+      const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', guardianValidation);
+      // The cookie headers should be semicolon-separated name=valueg
+      const authenticationResult = await panda.verify(sampleNonGuardianCookie);
+
+      const expected: Unauthenticated = {
+          success: false,
+          reason: "no-cookie"
+      };
+      expect(authenticationResult).toStrictEqual(expected);
+    });
+
+    it('should fail to authenticate if there is no cookie with the correct name out of multiple cookies', async () => {
+      jest.setSystemTime(100);
+
+      const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', guardianValidation);
+      const authenticationResult = await panda.verify(`wrongcookiename=${sampleNonGuardianCookie}; anotherwrongcookiename=${sampleNonGuardianCookie}`);
+
+      const expected: Unauthenticated = {
+          success: false,
+          reason: "no-cookie"
+      };
+      expect(authenticationResult).toStrictEqual(expected);
+    });
+
+    it('should fail to authenticate with bad-cookie reason if cookie is malformed', async () => {
+      jest.setSystemTime(100);
+
+      const panda = new PanDomainAuthentication('rightcookiename', 'region', 'bucket', 'keyfile', guardianValidation);
+      // There is a valid Panda cookie in here, but it's under the wrong name
+      const authenticationResult = await panda.verify(`wrongcookiename=${sampleNonGuardianCookie}; rightcookiename=not-valid-panda-cookie`);
+
+      const expected: Unauthenticated = {
+        success: false,
+        reason: "bad-cookie"
+      };
+      expect(authenticationResult).toStrictEqual(expected);
+    });
   });
 
 });
