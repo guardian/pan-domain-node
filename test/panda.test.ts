@@ -215,7 +215,7 @@ describe('panda class', function () {
       });
     });
 
-    it('authenticate with shouldRefreshCredentials if we\'re within the grace period', async () => {
+    it('authenticate with shouldRefreshCredentials if cookie expired but we\'re within the grace period', async () => {
       // Cookie expiry is 1234
       const beforeEndOfGracePeriodEpochMillis = 1234 + gracePeriodInMillis - 1;
       jest.setSystemTime(beforeEndOfGracePeriodEpochMillis);
