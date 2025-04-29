@@ -1,10 +1,8 @@
 import {
-    Authenticated,
+    CookieFailure, FreshSuccess,
     gracePeriodInMillis,
-    guardianValidation,
-    Unauthenticated,
-    Unauthorised,
-    User
+    guardianValidation, StaleSuccess,
+    User, UserValidationFailure
 } from '../src/api';
 import { verifyUser, createCookie, PanDomainAuthentication } from '../src/panda';
 import { fetchPublicKey } from '../src/fetch-public-key';
@@ -33,29 +31,32 @@ function userFromCookie(cookie: string): User {
 describe('verifyUser', function () {
 
     test("fail to authenticate if cookie is missing", () => {
-        expect(verifyUser(undefined, "", new Date(0), guardianValidation)).toStrictEqual({
+        const expected: CookieFailure = {
             success: false,
             reason: 'no-cookie'
-        });
+        };
+        expect(verifyUser(undefined, "", new Date(0), guardianValidation)).toStrictEqual(expected);
     });
 
     test("fail to authenticate if signature is malformed", () => {
         const [data, signature] = sampleCookie.split(".");
         const testCookie = data + ".1234";
 
-        expect(verifyUser(testCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual({
+        const expected: CookieFailure = {
             success: false,
             reason: 'bad-cookie'
-        });
+        };
+        expect(verifyUser(testCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
     });
 
     test("fail to authenticate if cookie expired and we're outside the grace period", () => {
         // Cookie expires at epoch time 1234
         const afterEndOfGracePeriod = new Date(1234 + gracePeriodInMillis + 1)
-        expect(verifyUser(sampleCookie, publicKey, afterEndOfGracePeriod, guardianValidation)).toStrictEqual({
+        const expected: CookieFailure = {
             success: false,
             reason: 'expired-cookie'
-        });
+        };
+        expect(verifyUser(sampleCookie, publicKey, afterEndOfGracePeriod, guardianValidation)).toStrictEqual(expected);
     });
 
     test("fail to authenticate if user fails validation function", () => {
@@ -72,7 +73,7 @@ describe('verifyUser', function () {
     });
 
     test("fail to authenticate with bad-cookie reason if cookie is malformed", () => {
-        const expected: Unauthenticated = {
+        const expected: CookieFailure = {
             success: false,
             reason: 'bad-cookie'
         };
@@ -80,7 +81,7 @@ describe('verifyUser', function () {
     });
 
     test("fail to authenticate with bad-cookie reason if signature is not valid", () => {
-        const expected: Unauthenticated = {
+        const expected: CookieFailure = {
             success: false,
             reason: 'bad-cookie'
         };
@@ -89,22 +90,23 @@ describe('verifyUser', function () {
     });
 
     test("authenticate if the cookie and user are valid", () => {
-        expect(verifyUser(sampleCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual({
+        const expected: FreshSuccess = {
             success: true,
             // Cookie is not expired so no need to refresh credentials
             shouldRefreshCredentials: false,
             user: userFromCookie(sampleCookie)
-        });
+        };
+        expect(verifyUser(sampleCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
     });
 
     test("authenticate with shouldRefreshCredentials if cookie expired but we're within the grace period", () => {
         const beforeEndOfGracePeriod = new Date(1234 + gracePeriodInMillis - 1);
-        const expected: Authenticated = {
+        const expected: StaleSuccess = {
             success: true,
             user: userFromCookie(sampleCookie),
             shouldRefreshCredentials: true,
             mustRefreshByEpochTimeMillis: 1234 + gracePeriodInMillis
-        }
+        };
         expect(verifyUser(sampleCookie, publicKey, beforeEndOfGracePeriod, guardianValidation)).toStrictEqual(expected);
     });
 });
@@ -193,12 +195,13 @@ describe('panda class', function () {
       const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', (u)=> true);
       const authenticationResult = await panda.verify(`cookiename=${sampleCookie}`);
 
-      expect(authenticationResult).toStrictEqual({
+      const expected: FreshSuccess = {
           success: true,
           // Cookie is not expired
           shouldRefreshCredentials: false,
           user: userFromCookie(sampleCookie)
-      });
+      }
+      expect(authenticationResult).toStrictEqual(expected);
     });
 
     it('should authenticate if cookie and user are valid when multiple cookies are passed', async () => {
@@ -206,12 +209,13 @@ describe('panda class', function () {
       const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', (u)=> true);
       const authenticationResult = await panda.verify(`a=blah; b=stuff; cookiename=${sampleCookie}; c=4958345`);
 
-      expect(authenticationResult).toStrictEqual({
+      const expected: FreshSuccess = {
           success: true,
           // Cookie is not expired
           shouldRefreshCredentials: false,
           user: userFromCookie(sampleCookie)
-      });
+      };
+      expect(authenticationResult).toStrictEqual(expected);
     });
 
     it('should fail to authenticate if cookie expired and we\'re outside the grace period', async () => {
@@ -222,10 +226,11 @@ describe('panda class', function () {
       const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', (u)=> true);
       const authenticationResult = await panda.verify(`cookiename=${sampleCookie}`);
 
-      expect(authenticationResult).toStrictEqual({
+      const expected: CookieFailure = {
           success: false,
           reason: 'expired-cookie'
-      });
+      };
+      expect(authenticationResult).toStrictEqual(expected);
     });
 
     it('authenticate with shouldRefreshCredentials if cookie expired but we\'re within the grace period', async () => {
@@ -236,12 +241,12 @@ describe('panda class', function () {
       const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', (u)=> true);
       const authenticationResult = await panda.verify(`cookiename=${sampleCookie}`);
 
-      const expected: Authenticated = {
+      const expected: StaleSuccess = {
           success: true,
           shouldRefreshCredentials: true,
           mustRefreshByEpochTimeMillis: 1234 + gracePeriodInMillis,
           user: userFromCookie(sampleCookie)
-      }
+      };
       expect(authenticationResult).toStrictEqual(expected);
     });
 
@@ -251,11 +256,12 @@ describe('panda class', function () {
       const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', guardianValidation);
       const authenticationResult = await panda.verify(`cookiename=${sampleNonGuardianCookie}`);
 
-      expect(authenticationResult).toStrictEqual({
+      const expected: UserValidationFailure = {
           success: false,
           reason: 'bad-user',
           user: userFromCookie(sampleNonGuardianCookie)
-      });
+      };
+      expect(authenticationResult).toStrictEqual(expected);
     });
 
     it('should fail to authenticate if there is no cookie with the correct name', async () => {
@@ -264,7 +270,7 @@ describe('panda class', function () {
       const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', guardianValidation);
       const authenticationResult = await panda.verify(`wrongcookiename=${sampleNonGuardianCookie}`);
 
-      const expected: Unauthenticated = {
+      const expected: CookieFailure = {
           success: false,
           reason: "no-cookie"
       };
@@ -278,7 +284,7 @@ describe('panda class', function () {
       // The cookie headers should be semicolon-separated name=valueg
       const authenticationResult = await panda.verify(sampleNonGuardianCookie);
 
-      const expected: Unauthenticated = {
+      const expected: CookieFailure = {
           success: false,
           reason: "no-cookie"
       };
@@ -291,7 +297,7 @@ describe('panda class', function () {
       const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', guardianValidation);
       const authenticationResult = await panda.verify(`wrongcookiename=${sampleNonGuardianCookie}; anotherwrongcookiename=${sampleNonGuardianCookie}`);
 
-      const expected: Unauthenticated = {
+      const expected: CookieFailure = {
           success: false,
           reason: "no-cookie"
       };
@@ -305,7 +311,7 @@ describe('panda class', function () {
       // There is a valid Panda cookie in here, but it's under the wrong name
       const authenticationResult = await panda.verify(`wrongcookiename=${sampleNonGuardianCookie}; rightcookiename=not-valid-panda-cookie`);
 
-      const expected: Unauthenticated = {
+      const expected: CookieFailure = {
         success: false,
         reason: "bad-cookie"
       };

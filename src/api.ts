@@ -14,35 +14,55 @@ export { PanDomainAuthentication } from './panda';
 // `shouldRefreshCredentials`  [-false---][-true------------------------]
 export const gracePeriodInMillis = 24 * 60 * 60 * 1000;
 
-export type FreshlyAuthenticated = {
+// These are used to enforce the structure of the
+// `AuthenticationResult` union types,
+// but are not exported because they are too general.
+interface Result {
+    success: boolean
+}
+interface Success extends Result {
+    // `success` is true when both these are true:
+    // - we've verified that the cookie is signed by the correct private key and decoded a `User` from it
+    // - we've validated the `User` using `ValidateUserFn`
     success: true,
-    // Cookie has not expired yet, so no need to refresh credentials.
-    shouldRefreshCredentials: false,
+    shouldRefreshCredentials: boolean,
     user: User
 }
-export type Authenticated = {
-    success: true,
+interface Failure extends Result {
+    success: false,
+    reason: string
+}
+
+// These are members of the `AuthenticationResult` union,
+// so they are exported for use by library consumers.
+export interface FreshSuccess extends Success {
+    // Cookie has not expired yet, so no need to refresh credentials.
+    shouldRefreshCredentials: false
+}
+export interface StaleSuccess extends Success {
     // Cookie has expired: we're in the grace period.
     // Endpoints that can refresh credentials should do so,
     // and those that cannot should tell the user to do so.
     shouldRefreshCredentials: true,
-    mustRefreshByEpochTimeMillis: number,
-    user: User
+    mustRefreshByEpochTimeMillis: number
 }
-export type Unauthenticated = {
-    success: false,
-    reason: 'no-cookie' | 'bad-cookie' | 'expired-cookie' | 'unknown'
-}
-export type Unauthorised = {
-    success: false,
+export interface UserValidationFailure extends Failure {
     reason: 'bad-user',
     user: User
 }
+export interface CookieFailure extends Failure {
+    reason: 'no-cookie' | 'bad-cookie' | 'expired-cookie'
+}
+export interface UnknownFailure extends Failure {
+    reason: 'unknown'
+}
 
-export type AuthenticationResult = FreshlyAuthenticated
-    | Authenticated
-    | Unauthenticated
-    | Unauthorised
+export type AuthenticationResult = FreshSuccess
+    | StaleSuccess
+    | CookieFailure
+    | UserValidationFailure
+    | UnknownFailure
+
 
 export interface User {
     firstName: string,
