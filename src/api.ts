@@ -22,8 +22,9 @@ interface Result {
 }
 interface Success extends Result {
     // `success` is true when both these are true:
-    // - we've verified that the cookie is signed by the correct private key and decoded a `User` from it
-    // - we've validated the `User` using `ValidateUserFn`
+    // 1. we've verified that the cookie is signed by the correct private key
+    //    and decoded a `User` from it
+    // 2. we've validated the `User` using `ValidateUserFn`
     success: true,
     shouldRefreshCredentials: boolean,
     user: User
