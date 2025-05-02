@@ -36,7 +36,7 @@ export function verifyUser(pandaCookie: string | undefined, publicKey: string, c
     if (!parsedCookie) {
         return {
             success: false,
-            reason: 'bad-cookie'
+            reason: 'invalid-cookie'
         };
     }
     const { data, signature } = parsedCookie;
@@ -44,7 +44,7 @@ export function verifyUser(pandaCookie: string | undefined, publicKey: string, c
     if (!verifySignature(data, signature, publicKey)) {
         return {
             success: false,
-            reason: 'bad-cookie'
+            reason: 'invalid-cookie'
         };
     }
 
@@ -74,7 +74,7 @@ export function verifyUser(pandaCookie: string | undefined, publicKey: string, c
         if (!validateUser(user)) {
             return {
                 success: false,
-                reason: 'bad-user',
+                reason: 'invalid-user',
                 user
             };
         }

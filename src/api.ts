@@ -48,11 +48,11 @@ export interface StaleSuccess extends Success {
     mustRefreshByEpochTimeMillis: number
 }
 export interface UserValidationFailure extends Failure {
-    reason: 'bad-user',
+    reason: 'invalid-user',
     user: User
 }
 export interface CookieFailure extends Failure {
-    reason: 'no-cookie' | 'bad-cookie' | 'expired-cookie'
+    reason: 'no-cookie' | 'invalid-cookie' | 'expired-cookie'
 }
 export interface UnknownFailure extends Failure {
     reason: 'unknown'

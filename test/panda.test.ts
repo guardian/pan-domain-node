@@ -44,7 +44,7 @@ describe('verifyUser', function () {
 
         const expected: CookieFailure = {
             success: false,
-            reason: 'bad-cookie'
+            reason: 'invalid-cookie'
         };
         expect(verifyUser(testCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
     });
@@ -62,28 +62,28 @@ describe('verifyUser', function () {
     test("fail to authenticate if user fails validation function", () => {
         expect(verifyUser(sampleCookieWithoutMultifactor, publicKey, new Date(0), guardianValidation)).toStrictEqual({
             success: false,
-            reason: 'bad-user',
+            reason: 'invalid-user',
             user: userFromCookie(sampleCookieWithoutMultifactor)
         });
         expect(verifyUser(sampleNonGuardianCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual({
             success: false,
-            reason: 'bad-user',
+            reason: 'invalid-user',
             user: userFromCookie(sampleNonGuardianCookie)
         });
     });
 
-    test("fail to authenticate with bad-cookie reason if cookie is malformed", () => {
+    test("fail to authenticate with invalid-cookie reason if cookie is malformed", () => {
         const expected: CookieFailure = {
             success: false,
-            reason: 'bad-cookie'
+            reason: 'invalid-cookie'
         };
         expect(verifyUser("complete garbage", publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
     });
 
-    test("fail to authenticate with bad-cookie reason if signature is not valid", () => {
+    test("fail to authenticate with invalid-cookie reason if signature is not valid", () => {
         const expected: CookieFailure = {
             success: false,
-            reason: 'bad-cookie'
+            reason: 'invalid-cookie'
         };
         const slightlyBadCookie = sampleCookie.slice(0, -2);
         expect(verifyUser(slightlyBadCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
@@ -258,7 +258,7 @@ describe('panda class', function () {
 
       const expected: UserValidationFailure = {
           success: false,
-          reason: 'bad-user',
+          reason: 'invalid-user',
           user: userFromCookie(sampleNonGuardianCookie)
       };
       expect(authenticationResult).toStrictEqual(expected);
@@ -304,7 +304,7 @@ describe('panda class', function () {
       expect(authenticationResult).toStrictEqual(expected);
     });
 
-    it('should fail to authenticate with bad-cookie reason if cookie is malformed', async () => {
+    it('should fail to authenticate with invalid-cookie reason if cookie is malformed', async () => {
       jest.setSystemTime(100);
 
       const panda = new PanDomainAuthentication('rightcookiename', 'region', 'bucket', 'keyfile', guardianValidation);
@@ -313,7 +313,7 @@ describe('panda class', function () {
 
       const expected: CookieFailure = {
         success: false,
-        reason: "bad-cookie"
+        reason: "invalid-cookie"
       };
       expect(authenticationResult).toStrictEqual(expected);
     });
