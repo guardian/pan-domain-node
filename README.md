@@ -14,14 +14,33 @@ functionality for signing and verifying login cookies in Scala.
 
 The `pan-domain-node` library provides an implementation of *verification only* for node apps.
 
-## To verify login in NodeJS
+## Grace period
+We continue to consider the request authenticated for a period of time after the cookie expiry.
 
+This is to allow API requests which cannot directly send the user for re-auth to indicate to the user that they must take some action to refresh their credentials (usually, refreshing the page).
+
+When the cookie is expired but we're still within this grace period, `shouldRefreshCredentials` will be `true`, which means:
+- Endpoints that can refresh credentials (e.g. page endpoints that can redirect) should do so
+- Endpoints that cannot refresh credentials (e.g. API endpoints) should tell the user to take some action to refresh credentials
+
+```
+Panda cookie:               issued     expires                       `mustRefreshByEpochTimeMillis`
+                            |          |                             |
+                            |--1 hour--|                             |
+Grace period:                          [------------- 24 hours ------]
+
+`success`:         --false-][-true-----------------------------------][-false-------->
+`shouldRefreshCredentials`  [-false---][-true------------------------]
+```
+
+## Example usage
+### Installation
 [![npm version](https://badge.fury.io/js/%40guardian%2Fpan-domain-node.svg)](https://badge.fury.io/js/%40guardian%2Fpan-domain-node)
-
 ```
 npm install --save-dev @guardian/pan-domain-node
 ```
 
+### Initialisation
 ```typescript
 import { PanDomainAuthentication, AuthenticationStatus, User, guardianValidation } from '@guardian/pan-domain-node';
 
@@ -38,18 +57,39 @@ function customValidation(user: User): boolean {
   const isInCorrectDomain = user.email.indexOf('test.com') !== -1;
   return isInCorrectDomain && user.multifactor;
 }
+```
 
-// when handling a request
-function(request) {
-  // Pass the raw unparsed cookies
-  return panda.verify(request.headers['Cookie']).then(( { status, user }) => {
-    switch(status) {
-      case AuthenticationStatus.Authorised:
-        // Good user, handle the request!
-
-      default:
-        // Bad user. Return 4XX
+### Verification: page endpoints
+This is for endpoints that **can** refresh credentials, e.g. a page endpoint that can redirect to an auth flow:
+```typescript
+const authenticationResult = await panda.verify(headers.cookie);
+if (authenticationResult.success) {
+    if (authenticationResult.shouldRefreshCredentials) {
+        // Send for auth
+    } else {
+        // Can perform action with user
+        return authenticationResult.user;
     }
-  });
+}
+```
+
+### Verification: API endpoints
+This is for endpoints that **cannot** refresh credentials, e.g. API endpoints:
+```typescript
+const authenticationResult = await panda.verify(headers.cookie);
+if (authenticationResult.success) {
+  const user = authenticationResult.user;
+  // Handle request
+  // When returning response:
+  if (authenticationResult.shouldRefreshCredentials) {
+    const mustRefreshByEpochTimeMillis = authenticationResult.mustRefreshByEpochTimeMillis;
+    const remainingTime = mustRefreshByEpochTimeMillis - Date.now();
+    console.warn(`Stale Panda auth, will expire in ${remainingTime} milliseconds`);
+    // Can still return 200, but depending on the type of API,
+    // we may want to return some extra information so the client
+    // can warn the user they need to refresh their session.
+   } else {
+    // It's a fresh session. Nothing to worry about!
+  }
 }
 ```

@@ -3,11 +3,17 @@ import { sampleCookie } from './fixtures';
 import { URLSearchParams } from 'url';
 
 test("decode a cookie", () => {
-    const { data, signature } = parseCookie(sampleCookie);
-    expect(signature.length).toBe(684);
+    const parsedCookie = parseCookie(sampleCookie);
+    expect(parsedCookie).toBeDefined()
 
-    const params = new URLSearchParams(data);
-    
-    expect(params.get("firstName")).toBe("Test");
-    expect(params.get("lastName")).toBe("User");
+    // Unfortunately the above expect() doesn't narrow the type
+    if (parsedCookie) {
+        const { data, signature } = parsedCookie;
+        expect(signature.length).toBe(684);
+
+        const params = new URLSearchParams(data);
+
+        expect(params.get("firstName")).toBe("Test");
+        expect(params.get("lastName")).toBe("User");
+    }
 });
