@@ -17,7 +17,7 @@ import {
 import {decodeBase64, parseCookie, ParsedCookie, parseUser} from "../src/utils";
 
 jest.mock('../src/fetch-public-key');
-jest.useFakeTimers('modern');
+jest.useFakeTimers({ legacyFakeTimers: false });
 
 function userFromCookie(cookie: string): User {
     // This function is only used to generate a `User` object from

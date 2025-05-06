@@ -1,3 +1,4 @@
+/** @type {import('jest').Config} */
 module.exports = {
   "roots": [
     "<rootDir>/src",
@@ -5,7 +6,9 @@ module.exports = {
   ],
   "clearMocks": true,
   "transform": {
-    "^.+\\.tsx?$": "ts-jest"
+    "^.+\\.tsx?$": ["ts-jest", {
+      useESM: true
+    }]
   },
   "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$",
   "moduleFileExtensions": [
@@ -16,4 +19,6 @@ module.exports = {
     "json",
     "node"
   ],
+  "testEnvironment": "node",
+  "verbose": true
 }
