@@ -9,17 +9,39 @@ export function decodeBase64(data: string): string {
 }
 
 export type ParsedCookie = { data: string, signature: string };
+
+/**
+ * Check if a string is valid base64
+ */
+function isBase64(str: string): boolean {
+    try {
+        return Buffer.from(str, 'base64').toString('base64') === str;
+    } catch (err) {
+        return false;
+    }
+}
+
 /**
  * Parse a pan-domain user cookie in to data and signature
+ * Validates that the cookie is properly formatted (two base64 strings separated by '.')
  */
 export function parseCookie(cookie: string): ParsedCookie | undefined {
-    const splitCookie = cookie.split('\.');
-    if (splitCookie.length !== 2) {
+    const cookieRegex = /^([\w\W]*)\.([\w\W]*)$/;
+    const match = cookie.match(cookieRegex);
+    
+    if (!match) {
         return undefined;
     }
+
+    const [, data, signature] = match;
+    
+    if (!isBase64(data) || !isBase64(signature)) {
+        return undefined;
+    }
+
     return {
-        data: decodeBase64(splitCookie[0]),
-        signature: splitCookie[1]
+        data: decodeBase64(data),
+        signature: signature
     };
 }
 

@@ -72,14 +72,6 @@ describe('verifyUser', function () {
         });
     });
 
-    test("fail to authenticate with invalid-cookie reason if cookie is malformed", () => {
-        const expected: CookieFailure = {
-            success: false,
-            reason: 'invalid-cookie'
-        };
-        expect(verifyUser("complete garbage", publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
-    });
-
     test("fail to authenticate with invalid-cookie reason if signature is not valid", () => {
         const expected: CookieFailure = {
             success: false,
@@ -87,6 +79,46 @@ describe('verifyUser', function () {
         };
         const slightlyBadCookie = sampleCookie.slice(0, -2);
         expect(verifyUser(slightlyBadCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
+    });
+
+    test("fail to authenticate with invalid-cookie reason if data part is not base64", () => {
+        const expected: CookieFailure = {
+            success: false,
+            reason: 'invalid-cookie'
+        };
+        const [_, signature] = sampleCookie.split(".");
+        const nonBase64Data = "not-base64-data";
+        const testCookie = `${nonBase64Data}.${signature}`;
+        expect(verifyUser(testCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
+    });
+
+    test("fail to authenticate with invalid-cookie reason if signature part is not base64", () => {
+        const expected: CookieFailure = {
+            success: false,
+            reason: 'invalid-cookie'
+        };
+        const [data, _] = sampleCookie.split(".");
+        const nonBase64Signature = "not-base64-signature";
+        const testCookie = `${data}.${nonBase64Signature}`;
+        expect(verifyUser(testCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
+    });
+
+    test("fail to authenticate with invalid-cookie reason if cookie has no dot separator", () => {
+        const expected: CookieFailure = {
+            success: false,
+            reason: 'invalid-cookie'
+        };
+        const noDotCookie = sampleCookie.replace(".", "");
+        expect(verifyUser(noDotCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
+    });
+
+    test("fail to authenticate with invalid-cookie reason if cookie has multiple dot separators", () => {
+        const expected: CookieFailure = {
+            success: false,
+            reason: 'invalid-cookie'
+        };
+        const multipleDotsCookie = sampleCookie.replace(".", "..");
+        expect(verifyUser(multipleDotsCookie, publicKey, new Date(0), guardianValidation)).toStrictEqual(expected);
     });
 
     test("authenticate if the cookie and user are valid", () => {
