@@ -1,4 +1,5 @@
 import {
+    AuthenticationResult,
     CookieFailure, FreshSuccess,
     gracePeriodInMillis,
     guardianValidation, StaleSuccess,
@@ -16,6 +17,7 @@ import {
 } from './fixtures';
 import {decodeBase64, parseCookie, ParsedCookie, parseUser} from "../src/utils";
 
+
 jest.mock('../src/fetch-public-key');
 jest.useFakeTimers({ legacyFakeTimers: false });
 
@@ -28,15 +30,34 @@ function userFromCookie(cookie: string): User {
     return parseUser(parsedCookie.data);
 }
 
-describe('verifyUser', function () {
-
-    test("fail to authenticate if cookie is missing", () => {
-        const expected: CookieFailure = {
+const cases: Array<{input: {cookie: string | undefined, currentTimeInEpochMillis: number}, expectedOutput: AuthenticationResult, whyUnauthed: string}> = [
+    {
+        input: {cookie: undefined, currentTimeInEpochMillis: 0},
+        expectedOutput: {
             success: false,
             reason: 'no-cookie'
-        };
-        expect(verifyUser(undefined, "", new Date(0), guardianValidation)).toStrictEqual(expected);
-    });
+        },
+        whyUnauthed: 'cookie is missing'
+    },
+
+];
+
+describe('verifyUser', function () {
+    test.each(cases)(
+        'fail to authenticate with reason $expectedOutput.reason on input $input, because $whyUnauthed',
+        ({input, expectedOutput}) => {
+            const authenticationResult = verifyUser(input.cookie, "", new Date(input.currentTimeInEpochMillis), guardianValidation);
+            expect(authenticationResult).toStrictEqual(expectedOutput);
+        }
+    )
+
+    // test("fail to authenticate if cookie is missing", () => {
+    //     const expected: CookieFailure = {
+    //         success: false,
+    //         reason: 'no-cookie'
+    //     };
+    //     expect(verifyUser(undefined, "", new Date(0), guardianValidation)).toStrictEqual(expected);
+    // });
 
     test("fail to authenticate if signature is malformed", () => {
         const [data, signature] = sampleCookie.split(".");
@@ -203,21 +224,6 @@ describe('panda class', function () {
       }
       expect(authenticationResult).toStrictEqual(expected);
     });
-
-    it('should authenticate if cookie and user are valid when multiple cookies are passed', async () => {
-      jest.setSystemTime(100);
-      const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', (u)=> true);
-      const authenticationResult = await panda.verify(`a=blah; b=stuff; cookiename=${sampleCookie}; c=4958345`);
-
-      const expected: FreshSuccess = {
-          success: true,
-          // Cookie is not expired
-          shouldRefreshCredentials: false,
-          user: userFromCookie(sampleCookie)
-      };
-      expect(authenticationResult).toStrictEqual(expected);
-    });
-
     it('should fail to authenticate if cookie expired and we\'re outside the grace period', async () => {
       // Cookie expiry is 1234
       const afterEndOfGracePeriodEpochMillis = 1234 + gracePeriodInMillis + 1
@@ -264,6 +270,9 @@ describe('panda class', function () {
       expect(authenticationResult).toStrictEqual(expected);
     });
 
+
+    // DIFFERENT!
+
     it('should fail to authenticate if there is no cookie with the correct name', async () => {
       jest.setSystemTime(100);
 
@@ -291,15 +300,17 @@ describe('panda class', function () {
       expect(authenticationResult).toStrictEqual(expected);
     });
 
-    it('should fail to authenticate if there is no cookie with the correct name out of multiple cookies', async () => {
+
+    it('should authenticate if cookie and user are valid when multiple cookies are passed', async () => {
       jest.setSystemTime(100);
+      const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', (u)=> true);
+      const authenticationResult = await panda.verify(`a=blah; b=stuff; cookiename=${sampleCookie}; c=4958345`);
 
-      const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', guardianValidation);
-      const authenticationResult = await panda.verify(`wrongcookiename=${sampleNonGuardianCookie}; anotherwrongcookiename=${sampleNonGuardianCookie}`);
-
-      const expected: CookieFailure = {
-          success: false,
-          reason: "no-cookie"
+      const expected: FreshSuccess = {
+          success: true,
+          // Cookie is not expired
+          shouldRefreshCredentials: false,
+          user: userFromCookie(sampleCookie)
       };
       expect(authenticationResult).toStrictEqual(expected);
     });
@@ -314,6 +325,18 @@ describe('panda class', function () {
       const expected: CookieFailure = {
         success: false,
         reason: "invalid-cookie"
+      };
+      expect(authenticationResult).toStrictEqual(expected);
+    });
+    it('should fail to authenticate if there is no cookie with the correct name out of multiple cookies', async () => {
+      jest.setSystemTime(100);
+
+      const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', guardianValidation);
+      const authenticationResult = await panda.verify(`wrongcookiename=${sampleNonGuardianCookie}; anotherwrongcookiename=${sampleNonGuardianCookie}`);
+
+      const expected: CookieFailure = {
+          success: false,
+          reason: "no-cookie"
       };
       expect(authenticationResult).toStrictEqual(expected);
     });
