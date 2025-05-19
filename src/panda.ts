@@ -1,7 +1,7 @@
 import * as cookie from 'cookie';
 
 import {parseCookie, parseUser, sign, verifySignature} from './utils';
-import {AuthenticationStatus, User, AuthenticationResult, ValidateUserFn} from './api';
+import {User, AuthenticationResult, ValidateUserFn, gracePeriodInMillis} from './api';
 import { fetchPublicKey, PublicKeyHolder } from './fetch-public-key';
 
 export function createCookie(user: User, privateKey: string): string {
@@ -25,34 +25,71 @@ export function createCookie(user: User, privateKey: string): string {
 }
 
 export function verifyUser(pandaCookie: string | undefined, publicKey: string, currentTime: Date, validateUser: ValidateUserFn): AuthenticationResult {
-    if(!pandaCookie) {
-        return { status: AuthenticationStatus.INVALID_COOKIE };
+    if (!pandaCookie) {
+        return {
+            success: false,
+            reason: 'no-cookie'
+        };
     }
 
-    const { data, signature } = parseCookie(pandaCookie);
+    const parsedCookie = parseCookie(pandaCookie);
+    if (!parsedCookie) {
+        return {
+            success: false,
+            reason: 'invalid-cookie'
+        };
+    }
+    const { data, signature } = parsedCookie;
 
-    if(!verifySignature(data, signature, publicKey)) {
-        return { status: AuthenticationStatus.INVALID_COOKIE };
+    if (!verifySignature(data, signature, publicKey)) {
+        return {
+            success: false,
+            reason: 'invalid-cookie'
+        };
     }
 
-    const currentTimestampInMilliseconds = currentTime.getTime();
+    const currentTimestampInMillis = currentTime.getTime();
 
     try {
         const user: User = parseUser(data);
-        const isExpired = user.expires < currentTimestampInMilliseconds;
+        const isExpired = user.expires < currentTimestampInMillis;
 
-        if(isExpired) {
-            return { status: AuthenticationStatus.EXPIRED, user };
+        if (isExpired) {
+            const gracePeriodEndsAtEpochTimeMillis = user.expires + gracePeriodInMillis;
+            if (gracePeriodEndsAtEpochTimeMillis < currentTimestampInMillis) {
+                return {
+                    success: false,
+                    reason: 'expired-cookie'
+                };
+            } else {
+                return {
+                    success: true,
+                    shouldRefreshCredentials: true,
+                    mustRefreshByEpochTimeMillis: gracePeriodEndsAtEpochTimeMillis,
+                    user
+                }
+            }
         }
 
-        if(!validateUser(user)) {
-            return { status: AuthenticationStatus.NOT_AUTHORISED, user };
+        if (!validateUser(user)) {
+            return {
+                success: false,
+                reason: 'invalid-user',
+                user
+            };
         }
 
-        return { status: AuthenticationStatus.AUTHORISED, user };
-    } catch(error) {
+        return {
+            success: true,
+            shouldRefreshCredentials: false,
+            user
+        };
+    } catch (error) {
         console.error(error);
-        return { status: AuthenticationStatus.INVALID_COOKIE };
+        return {
+            success: false,
+            reason: 'unknown'
+        };
     }
 }
 
@@ -64,7 +101,7 @@ export class PanDomainAuthentication {
     validateUser: ValidateUserFn;
 
     publicKey: Promise<PublicKeyHolder>;
-    keyCacheTime: number = 60 * 1000; // 1 minute
+    keyCacheTimeInMillis: number = 60 * 1000; // 1 minute
     keyUpdateTimer?: NodeJS.Timeout;
 
     constructor(cookieName: string, region: string, bucket: string, keyFile: string, validateUser: ValidateUserFn) {
@@ -76,7 +113,7 @@ export class PanDomainAuthentication {
 
         this.publicKey = fetchPublicKey(region, bucket, keyFile);
 
-        this.keyUpdateTimer = setInterval(() => this.getPublicKey(), this.keyCacheTime);
+        this.keyUpdateTimer = setInterval(() => this.getPublicKey(), this.keyCacheTimeInMillis);
     }
 
     stop(): void {
@@ -91,7 +128,7 @@ export class PanDomainAuthentication {
             const now = new Date();
             const diff = now.getTime() - lastUpdated.getTime();
 
-            if(diff > this.keyCacheTime) {
+            if(diff > this.keyCacheTimeInMillis) {
                 this.publicKey = fetchPublicKey(this.region, this.bucket, this.keyFile);
                 return this.publicKey.then(({ key }) => key);
             } else {
