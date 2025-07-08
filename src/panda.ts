@@ -3,6 +3,8 @@ import * as cookie from 'cookie';
 import {parseCookie, parseUser, sign, verifySignature} from './utils';
 import {User, AuthenticationResult, ValidateUserFn, gracePeriodInMillis} from './api';
 import { fetchPublicKey, PublicKeyHolder } from './fetch-public-key';
+import { S3 } from "@aws-sdk/client-s3";
+import { fromNodeProviderChain, fromIni } from "@aws-sdk/credential-providers";
 
 export function createCookie(user: User, privateKey: string): string {
     let queryParams: string[] = [];
@@ -93,6 +95,8 @@ export function verifyUser(pandaCookie: string | undefined, publicKey: string, c
     }
 }
 
+const LOCAL_PROFILE = "workflow";
+
 export class PanDomainAuthentication {
     cookieName: string;
     region: string;
@@ -103,15 +107,21 @@ export class PanDomainAuthentication {
     publicKey: Promise<PublicKeyHolder>;
     keyCacheTimeInMillis: number = 60 * 1000; // 1 minute
     keyUpdateTimer?: NodeJS.Timeout;
+    s3Client: S3;
 
-    constructor(cookieName: string, region: string, bucket: string, keyFile: string, validateUser: ValidateUserFn) {
+    constructor(cookieName: string, region: string, bucket: string, keyFile: string, validateUser: ValidateUserFn, localDev : boolean = false) {
         this.cookieName = cookieName;
         this.region = region;
         this.bucket = bucket;
         this.keyFile = keyFile;
         this.validateUser = validateUser;
 
-        this.publicKey = fetchPublicKey(region, bucket, keyFile);
+        const standardAwsConfig = {
+            region: region,
+            credentials: localDev? fromIni({ profile: LOCAL_PROFILE }): fromNodeProviderChain(),
+        }; 
+        this.s3Client = new S3(standardAwsConfig);
+        this.publicKey = fetchPublicKey(this.s3Client, region, bucket, keyFile);
 
         this.keyUpdateTimer = setInterval(() => this.getPublicKey(), this.keyCacheTimeInMillis);
     }
@@ -129,7 +139,7 @@ export class PanDomainAuthentication {
             const diff = now.getTime() - lastUpdated.getTime();
 
             if(diff > this.keyCacheTimeInMillis) {
-                this.publicKey = fetchPublicKey(this.region, this.bucket, this.keyFile);
+                this.publicKey = fetchPublicKey(this.s3Client, this.region, this.bucket, this.keyFile);
                 return this.publicKey.then(({ key }) => key);
             } else {
                 return key;
@@ -141,7 +151,6 @@ export class PanDomainAuthentication {
         return this.getPublicKey().then(publicKey => {
             const cookies = cookie.parse(requestCookies);
             const pandaCookie = cookies[this.cookieName];
-
             return verifyUser(pandaCookie, publicKey, new Date(), this.validateUser);
         });
     }
