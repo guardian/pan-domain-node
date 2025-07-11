@@ -121,7 +121,7 @@ export class PanDomainAuthentication {
             credentials: localDev? fromIni({ profile: LOCAL_PROFILE }): fromNodeProviderChain(),
         }; 
         this.s3Client = new S3(standardAwsConfig);
-        this.publicKey = fetchPublicKey(this.s3Client, region, bucket, keyFile);
+        this.publicKey = fetchPublicKey(this.s3Client, bucket, keyFile);
 
         this.keyUpdateTimer = setInterval(() => this.getPublicKey(), this.keyCacheTimeInMillis);
     }
@@ -139,7 +139,7 @@ export class PanDomainAuthentication {
             const diff = now.getTime() - lastUpdated.getTime();
 
             if(diff > this.keyCacheTimeInMillis) {
-                this.publicKey = fetchPublicKey(this.s3Client, this.region, this.bucket, this.keyFile);
+                this.publicKey = fetchPublicKey(this.s3Client, this.bucket, this.keyFile);
                 return this.publicKey.then(({ key }) => key);
             } else {
                 return key;

@@ -8,7 +8,7 @@ export interface PublicKeyHolder {
 }
 
 
-export function fetchPublicKey(s3: S3, region: string, bucket: string, keyFile: string): Promise<PublicKeyHolder> {
+export function fetchPublicKey(s3: S3, bucket: string, keyFile: string): Promise<PublicKeyHolder> {
 
     const publicKeyLocation = {
         Bucket: bucket,
