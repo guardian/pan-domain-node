@@ -33,6 +33,10 @@ export function fetchPublicKey(s3: S3, bucket: string, keyFile: string): Promise
                     throw new Error("Missing publicKey setting from config");
                 }
             }
+        })
+        .catch((error) => {
+            console.error(`Error fetching public key from S3: ${error}`);
+            throw error;
         });
 }
 
