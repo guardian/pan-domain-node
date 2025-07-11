@@ -40,16 +40,24 @@ Grace period:                          [------------- 24 hours ------]
 npm install --save-dev @guardian/pan-domain-node
 ```
 
+### Setup
+The library requires AWS credential to read the public key files from the S3 bucket `pan-domain-auth-settings` in `Workflow` account.  Please ensure that the execution environment has AWS credential for an IAM profile that has read access to the bucket.
+
+Currently, the bucket has been configured to allow access from any IAM users under a (fairly broad) list of AWS accounts (such as composer, cms-fronts, mobile etc).  Please get in touch with Workflow and Collaboration team if you need to get the read permission on the `pan-domain-auth-settings` bucket for your AWS acount.
+
 ### Initialisation
 ```typescript
 import { PanDomainAuthentication, AuthenticationStatus, User, guardianValidation } from '@guardian/pan-domain-node';
+
+const isRunningLocally = false;  // true if it runs locally.  False if it runs in AWS service such as EC2 and Lambda.
 
 const panda = new PanDomainAuthentication(
   "gutoolsAuth-assym", // cookie name
   "eu-west-1", // AWS region
   "pan-domain-auth-settings", // Settings bucket
   "local.dev-gutools.co.uk.settings.public", // Settings file
-  guardianValidation
+  guardianValidation,
+  isRunningLocally,
 );
 
 // alternatively customise the validation function and pass at construction
