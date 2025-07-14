@@ -41,9 +41,11 @@ npm install --save-dev @guardian/pan-domain-node
 ```
 
 ### Setup
-The library requires AWS credential to read the public key files from the S3 bucket `pan-domain-auth-settings` in `Workflow` account.  Please ensure that the execution environment has AWS credential for an IAM profile that has read access to the bucket.
+The library load the public key file from a S3 object.  Consuming applications can specify the S3 object via the arugments 'region', 'bucket' and 'keyFile' to the constructor of `PanDomainAuthentication` class as shown in the Initialisation below.
 
-Currently, the bucket has been configured to allow access from any IAM users under a (fairly broad) list of AWS accounts (such as composer, cms-fronts, mobile etc).  Please get in touch with Workflow and Collaboration team if you need to get the read permission on the `pan-domain-auth-settings` bucket for your AWS acount.
+Therefore, the application must run with an AWS credential that has read access to the S3 object in that bucket.
+
+You may refer to [Pan Domain authentication documentation](https://github.com/guardian/pan-domain-authentication) for details on how this authentication works. 
 
 ### Initialisation
 ```typescript

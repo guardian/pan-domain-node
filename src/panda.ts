@@ -95,8 +95,6 @@ export function verifyUser(pandaCookie: string | undefined, publicKey: string, c
     }
 }
 
-const LOCAL_PROFILE = "workflow";
-
 export class PanDomainAuthentication {
     cookieName: string;
     region: string;
@@ -109,7 +107,7 @@ export class PanDomainAuthentication {
     keyUpdateTimer?: NodeJS.Timeout;
     s3Client: S3;
 
-    constructor(cookieName: string, region: string, bucket: string, keyFile: string, validateUser: ValidateUserFn, localDev : boolean = false) {
+    constructor(cookieName: string, region: string, bucket: string, keyFile: string, validateUser: ValidateUserFn, localDev : boolean = false, localProfile?: string) {
         this.cookieName = cookieName;
         this.region = region;
         this.bucket = bucket;
@@ -118,7 +116,7 @@ export class PanDomainAuthentication {
 
         const standardAwsConfig = {
             region: region,
-            credentials: localDev? fromIni({ profile: LOCAL_PROFILE }): fromNodeProviderChain(),
+            credentials: localDev ? fromIni({ profile: localProfile }) : fromNodeProviderChain(),
         }; 
         this.s3Client = new S3(standardAwsConfig);
         this.publicKey = fetchPublicKey(this.s3Client, bucket, keyFile);
