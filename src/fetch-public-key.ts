@@ -1,5 +1,6 @@
 import * as iniparser from 'iniparser';
 import {base64ToPEM, httpGet} from './utils';
+import { S3 } from "@aws-sdk/client-s3";
 
 export interface PublicKeyHolder {
     key: string,
@@ -7,21 +8,36 @@ export interface PublicKeyHolder {
 }
 
 
-export function fetchPublicKey(region: string, bucket: String, keyFile: String): Promise<PublicKeyHolder> {
-    const path = `https://s3.${region}.amazonaws.com/${bucket}/${keyFile}`;
+export function fetchPublicKey(s3: S3, bucket: string, keyFile: string): Promise<PublicKeyHolder> {
 
-    return httpGet(path).then(response => {
-        const config: { publicKey?: string} = iniparser.parseString(response);
+    const publicKeyLocation = {
+        Bucket: bucket,
+        Key: keyFile,
+    };
 
-        if(config.publicKey) {
-            return {
-                key: base64ToPEM(config.publicKey, "PUBLIC"),
-                lastUpdated: new Date()
-            };
-        } else {
-            throw new Error("Missing publicKey setting from config");
-        }
-    });
+    return s3.getObject(publicKeyLocation)
+        .then(({ Body }) => Body?.transformToString())
+        .then((pandaConfigIni) => {
+            if (!pandaConfigIni) {
+                throw Error(`could not read panda config ${JSON.stringify(publicKeyLocation)}`);
+            }
+            else {
+                const config: { publicKey?: string } = iniparser.parseString(pandaConfigIni);
+                if (config.publicKey) {
+                    return {
+                        key: base64ToPEM(config.publicKey, "PUBLIC"),
+                        lastUpdated: new Date()
+                    };
+                } else {
+                    console.log(`Failed to retrieve panda public key from ${JSON.stringify(config)}`);
+                    throw new Error("Missing publicKey setting from config");
+                }
+            }
+        })
+        .catch((error) => {
+            console.error(`Error fetching public key from S3: ${error}`);
+            throw error;
+        });
 }
 
 
