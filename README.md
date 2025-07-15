@@ -50,8 +50,9 @@ You may refer to [Pan Domain authentication documentation](https://github.com/gu
 ### Initialisation
 ```typescript
 import { PanDomainAuthentication, AuthenticationStatus, User, guardianValidation } from '@guardian/pan-domain-node';
+import { fromIni } from "@aws-sdk/credential-providers";
 
-const isRunningLocally = false;  // true if it runs locally.  False if it runs in AWS service such as EC2 and Lambda.
+const credentialsProvider = fromIni();  // get credentials locally using the default profile
 
 const panda = new PanDomainAuthentication(
   "gutoolsAuth-assym", // cookie name
@@ -59,7 +60,7 @@ const panda = new PanDomainAuthentication(
   "pan-domain-auth-settings", // Settings bucket
   "local.dev-gutools.co.uk.settings.public", // Settings file
   guardianValidation,
-  isRunningLocally,
+  credentialsProvider, // it can be omitted if the app runs in AWS cloud.  In this case, "fromNodeProviderChain" is used by default.
 );
 
 // alternatively customise the validation function and pass at construction

@@ -4,7 +4,8 @@ import {parseCookie, parseUser, sign, verifySignature} from './utils';
 import {User, AuthenticationResult, ValidateUserFn, gracePeriodInMillis} from './api';
 import { fetchPublicKey, PublicKeyHolder } from './fetch-public-key';
 import { S3 } from "@aws-sdk/client-s3";
-import { fromNodeProviderChain, fromIni } from "@aws-sdk/credential-providers";
+import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
+import { AwsCredentialIdentityProvider } from "@aws-sdk/types";
 
 export function createCookie(user: User, privateKey: string): string {
     let queryParams: string[] = [];
@@ -107,7 +108,7 @@ export class PanDomainAuthentication {
     keyUpdateTimer?: NodeJS.Timeout;
     s3Client: S3;
 
-    constructor(cookieName: string, region: string, bucket: string, keyFile: string, validateUser: ValidateUserFn, localDev : boolean = false, localProfile?: string) {
+    constructor(cookieName: string, region: string, bucket: string, keyFile: string, validateUser: ValidateUserFn, credentialsProvider: AwsCredentialIdentityProvider = fromNodeProviderChain()) {
         this.cookieName = cookieName;
         this.region = region;
         this.bucket = bucket;
@@ -116,7 +117,7 @@ export class PanDomainAuthentication {
 
         const standardAwsConfig = {
             region: region,
-            credentials: localDev ? fromIni({ profile: localProfile }) : fromNodeProviderChain(),
+            credentials: credentialsProvider,
         }; 
         this.s3Client = new S3(standardAwsConfig);
         this.publicKey = fetchPublicKey(this.s3Client, bucket, keyFile);
