@@ -1,5 +1,11 @@
 # @guardian/pan-domain-node
 
+## 1.1.0
+
+### Minor Changes
+
+- b762261: Download public key from S3 with AWS credential
+
 ## 1.0.0
 
 ### Major Changes
