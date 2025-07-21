@@ -349,6 +349,21 @@ describe('panda class', function () {
       };
       expect(authenticationResult).toStrictEqual(expected);
     });
+
+    it('should fail to authenticate with no-cookie reason if no cookie is present at all', async () => {
+      jest.setSystemTime(100);
+
+      const panda = new PanDomainAuthentication('rightcookiename', 'region', 'bucket', 'keyfile', guardianValidation);
+      // There is a valid Panda cookie in here, but it's under the wrong name
+      const noCookie = undefined;
+      const authenticationResult = await panda.verify(noCookie);
+
+      const expected: CookieFailure = {
+        success: false,
+        reason: "no-cookie"
+      };
+      expect(authenticationResult).toStrictEqual(expected);
+    });
   });
 
 });

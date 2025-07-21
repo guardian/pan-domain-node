@@ -146,8 +146,14 @@ export class PanDomainAuthentication {
         });
     }
 
-    verify(requestCookies: string): Promise<AuthenticationResult> {
+    verify(requestCookies: string | undefined): Promise<AuthenticationResult> {
         return this.getPublicKey().then(publicKey => {
+            if (!requestCookies) {
+                return {
+                    success: false,
+                    reason: 'no-cookie'
+                };
+            }
             const cookies = cookie.parse(requestCookies);
             const pandaCookie = cookies[this.cookieName];
             return verifyUser(pandaCookie, publicKey, new Date(), this.validateUser);
