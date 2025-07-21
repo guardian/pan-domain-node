@@ -1,5 +1,5 @@
 ---
-"@guardian/pan-domain-node": patch
+"@guardian/pan-domain-node": minor
 ---
 
 Fix app crash with no cookie value

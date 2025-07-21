@@ -354,7 +354,6 @@ describe('panda class', function () {
       jest.setSystemTime(100);
 
       const panda = new PanDomainAuthentication('rightcookiename', 'region', 'bucket', 'keyfile', guardianValidation);
-      // There is a valid Panda cookie in here, but it's under the wrong name
       const noCookie = undefined;
       const authenticationResult = await panda.verify(noCookie);
 
