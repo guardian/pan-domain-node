@@ -1,5 +1,11 @@
 # @guardian/pan-domain-node
 
+## 1.2.0
+
+### Minor Changes
+
+- 5c14027: Fix app crash with no cookie value
+
 ## 1.1.0
 
 ### Minor Changes
