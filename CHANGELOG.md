@@ -1,5 +1,11 @@
 # @guardian/pan-domain-node
 
+## 1.2.3
+
+### Patch Changes
+
+- f72f1c3: Bump @aws-sdk to latest to remove vulnerable fast-xml-parser version
+
 ## 1.2.2
 
 ### Patch Changes
