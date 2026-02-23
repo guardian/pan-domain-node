@@ -1,5 +1,11 @@
 # @guardian/pan-domain-node
 
+## 1.2.1
+
+### Patch Changes
+
+- 502bbd5: no-op release to test migration to NPM trusted publishing
+
 ## 1.2.0
 
 ### Minor Changes
