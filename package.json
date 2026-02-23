@@ -35,7 +35,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.995.0",
     "@aws-sdk/credential-providers": "^3.995.0",
-    "cookie": "^0.4.1",
+    "cookie": "^0.7.0",
     "iniparser": "^1.0.5"
   },
   "scripts": {
