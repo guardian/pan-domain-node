@@ -1,5 +1,11 @@
 # @guardian/pan-domain-node
 
+## 1.2.4
+
+### Patch Changes
+
+- a3a6b24: Fix fast-xml-parser vulnerabilities
+
 ## 1.2.3
 
 ### Patch Changes
