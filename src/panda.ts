@@ -10,7 +10,7 @@ import {
     ValidateUserFn,
 } from "./api";
 import { fetchPublicKey, PublicKeyHolder } from "./fetch-public-key";
-import { parseCookie, parseUser, sign, verifySignature } from "./utils";
+import { hashIdForKey, parseCookie, parseUser, sign, verifySignature } from "./utils";
 
 export function createCookie(user: User, privateKey: string): string {
   let queryParams: string[] = [];
@@ -54,11 +54,19 @@ export function verifyUser(
   }
   const { data, signature } = parsedCookie;
 
-  if (!publicKeys.find((key) => verifySignature(data, signature, key))) {
+  const maybeValidSignatureKey = publicKeys.find((key) =>
+    verifySignature(data, signature, key),
+  );
+
+  if (maybeValidSignatureKey === undefined) {
     return {
       success: false,
       reason: "invalid-cookie",
     };
+  } else {
+    console.log(
+        `Successfully verified cookie signature with one of the public keys. Key hash: ${hashIdForKey(maybeValidSignatureKey)}
+    `);
   }
 
   const currentTimestampInMillis = currentTime.getTime();
