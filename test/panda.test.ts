@@ -164,7 +164,7 @@ describe('createCookie', function () {
 
 describe('panda class', function () {
   beforeEach(() => {
-    (fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>).mockResolvedValue({ key: 'PUBLIC KEY', lastUpdated: new Date() });
+    (fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>).mockResolvedValue({ key: 'PUBLIC KEY', alsoAcceptedKeys: [], lastUpdated: new Date() });
   });
 
   describe('stop', () => {
@@ -197,7 +197,7 @@ describe('panda class', function () {
       const fiveMinsAgo = new Date();
       fiveMinsAgo.setMinutes(fiveMinsAgo.getMinutes() - 5);
 
-      (fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>).mockResolvedValue({ key: 'PUBLIC KEY', lastUpdated: fiveMinsAgo });
+      (fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>).mockResolvedValue({ key: 'PUBLIC KEY', alsoAcceptedKeys: [], lastUpdated: fiveMinsAgo });
 
       const panda = new PanDomainAuthentication('cookiename', 'region', 'bucket', 'keyfile', (u)=> true);
 
@@ -205,7 +205,7 @@ describe('panda class', function () {
 
       await expect(panda.getPublicKey()).resolves.toEqual('PUBLIC KEY');
 
-      (fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>).mockResolvedValue({ key: 'PUBLIC KEY 2', lastUpdated: fiveMinsAgo });
+      (fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>).mockResolvedValue({ key: 'PUBLIC KEY 2', alsoAcceptedKeys: [], lastUpdated: fiveMinsAgo });
 
       const fetchesAfter = (fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>).mock.calls.length;
 
@@ -219,7 +219,7 @@ describe('panda class', function () {
   describe('verify', () => {
 
     beforeEach(() => {
-      (fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>).mockResolvedValue({ key: publicKey, lastUpdated: new Date() });
+      (fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>).mockResolvedValue({ key: publicKey, alsoAcceptedKeys: [], lastUpdated: new Date() });
     });
 
     it('should authenticate if cookie and user are valid', async () => {
