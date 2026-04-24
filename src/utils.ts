@@ -1,8 +1,8 @@
 import * as crypto from 'crypto';
 import * as https from 'https';
 
-import {User} from './api';
-import {URLSearchParams} from 'url';
+import { URLSearchParams } from 'url';
+import { User } from './api';
 
 export function decodeBase64(data: string): string {
     return Buffer.from(data, 'base64').toString('utf8');
@@ -85,6 +85,16 @@ export function base64ToPEM (key: string, headerFooter: string): string {
     ret.push(Buffer.from(PEM_FOOTER).toString('ascii'));
 
     return ret.join(ASCII_NEW_LINE);
+}
+
+const NumberOfDigitsNecessaryToAvoidBirthdayCollisions: number = 5;
+
+export function hashIdForKey(key: string): string {
+    return crypto
+        .createHash('sha256')
+        .update(key)
+        .digest('hex')
+        .slice(0, NumberOfDigitsNecessaryToAvoidBirthdayCollisions);
 }
 
 export function httpGet(path: string): Promise<string> {
