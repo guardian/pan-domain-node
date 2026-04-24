@@ -34,7 +34,7 @@ export function createCookie(user: User, privateKey: string): string {
 
 export function verifyUser(
   pandaCookie: string | undefined,
-  publicKey: string,
+  publicKeys: string[],
   currentTime: Date,
   validateUser: ValidateUserFn,
 ): AuthenticationResult {
@@ -54,7 +54,7 @@ export function verifyUser(
   }
   const { data, signature } = parsedCookie;
 
-  if (!verifySignature(data, signature, publicKey)) {
+  if (!publicKeys.find((key) => verifySignature(data, signature, key))) {
     return {
       success: false,
       reason: "invalid-cookie",
@@ -153,24 +153,26 @@ export class PanDomainAuthentication {
     }
   }
 
-  async getPublicKey(): Promise<string> {
+  async getPublicKey(): Promise<string[]> {
     const publicKeyHolder = await this.publicKey;
     const now = new Date();
     const diff = now.getTime() - publicKeyHolder.lastUpdated.getTime();
 
     if (diff > this.keyCacheTimeInMillis) {
       this.publicKey = fetchPublicKey(this.s3Client, this.bucket, this.keyFile);
-      const { key } = (await this.publicKey)
-      return key;
+      const { keys } = await this.publicKey;
+      return keys;
     } else {
-      return publicKeyHolder.key;
+      return publicKeyHolder.keys;
     }
   }
 
-  async verify(requestCookies: string | undefined): Promise<AuthenticationResult> {
-    const publicKey = await this.getPublicKey();
+  async verify(
+    requestCookies: string | undefined,
+  ): Promise<AuthenticationResult> {
+    const publicKeys = await this.getPublicKey();
     const cookies = cookie.parse(requestCookies ?? "");
     const pandaCookie = cookies[this.cookieName];
-    return verifyUser(pandaCookie, publicKey, new Date(), this.validateUser);
+    return verifyUser(pandaCookie, publicKeys, new Date(), this.validateUser);
   }
 }

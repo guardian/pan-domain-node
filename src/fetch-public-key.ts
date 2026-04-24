@@ -3,8 +3,7 @@ import * as ini from "ini";
 import { base64ToPEM } from "./utils";
 
 export interface PublicKeyHolder {
-  key: string;
-  alsoAcceptedKeys: string[];
+  keys: string[];
   lastUpdated: Date;
 }
 
@@ -54,8 +53,7 @@ export function parseKeysFromIni(pandaConfigIni: string): PublicKeyHolder {
     .map(([_key, value]) => base64ToPEM(value, "PUBLIC"));
 
   return {
-    key: base64ToPEM(config.publicKey, "PUBLIC"),
-    alsoAcceptedKeys,
+    keys: [base64ToPEM(config.publicKey, "PUBLIC"), ...alsoAcceptedKeys],
     lastUpdated: new Date(),
   };
 }

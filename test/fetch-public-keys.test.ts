@@ -9,10 +9,10 @@ describe("parseKeysFromIni", () => {
     ].join("\n");
 
     const result = parseKeysFromIni(iniString);
-    expect(result).toHaveProperty("key");
-    expect(result.key).toBe(
+    expect(result).toHaveProperty("keys");
+    expect(result.keys).toEqual([
       "-----BEGIN PUBLIC KEY-----\nabcd123==\n-----END PUBLIC KEY-----",
-    );
+    ]);
     expect(result).toHaveProperty("lastUpdated");
     expect(result.lastUpdated).toBeInstanceOf(Date);
   });
@@ -26,8 +26,9 @@ describe("parseKeysFromIni", () => {
     ].join("\n");
 
     const result = parseKeysFromIni(iniString);
-    expect(result).toHaveProperty("alsoAcceptedKeys");
-    expect(result.alsoAcceptedKeys).toEqual([
+    expect(result).toHaveProperty("keys");
+    expect(result.keys).toEqual([
+      "-----BEGIN PUBLIC KEY-----\nabcd123==\n-----END PUBLIC KEY-----",
       "-----BEGIN PUBLIC KEY-----\nefgh456==\n-----END PUBLIC KEY-----",
       "-----BEGIN PUBLIC KEY-----\nijkl789==\n-----END PUBLIC KEY-----",
       "-----BEGIN PUBLIC KEY-----\nmnopqrs==\n-----END PUBLIC KEY-----",
@@ -43,8 +44,9 @@ describe("parseKeysFromIni", () => {
     ].join("\n");
 
     const result = parseKeysFromIni(iniString);
-    expect(result).toHaveProperty("alsoAcceptedKeys");
-    expect(result.alsoAcceptedKeys).toEqual([
+    expect(result).toHaveProperty("keys");
+    expect(result.keys).toEqual([
+      "-----BEGIN PUBLIC KEY-----\nabcd123==\n-----END PUBLIC KEY-----",
       "-----BEGIN PUBLIC KEY-----\nefgh456==\n-----END PUBLIC KEY-----",
       "-----BEGIN PUBLIC KEY-----\nijkl789==\n-----END PUBLIC KEY-----",
     ]);
