@@ -1,5 +1,5 @@
 import { S3 } from "@aws-sdk/client-s3";
-import * as iniparser from "iniparser";
+import * as ini from "ini";
 import { base64ToPEM } from "./utils";
 
 export interface PublicKeyHolder {
@@ -35,7 +35,7 @@ export function fetchPublicKey(
 }
 
 export function parseKeysFromIni(pandaConfigIni: string): PublicKeyHolder {
-  const config: { publicKey?: string } = iniparser.parseString(pandaConfigIni);
+  const config: Record<string, string> = ini.parse(pandaConfigIni);
   if (config.publicKey) {
     return {
       key: base64ToPEM(config.publicKey, "PUBLIC"),
