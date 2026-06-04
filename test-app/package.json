@@ -7,6 +7,8 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@guardian/pan-domain-node": "file:..",
+    "@aws-sdk/credential-providers": "3.1046.0",
     "@hono/node-server": "1.19.14",
     "hono": "4.12.21"
   },
