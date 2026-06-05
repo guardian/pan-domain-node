@@ -2,8 +2,8 @@
   "name": "@guardian/pan-domain-node",
   "version": "1.2.4",
   "description": "NodeJs implementation of Guardian pan-domain auth verification",
-  "main": "dist/src/api.js",
-  "types": "dist/src/api.d.ts",
+  "main": "dist/api.js",
+  "types": "dist/api.d.ts",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/guardian/pan-domain-node.git"
