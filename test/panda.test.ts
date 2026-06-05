@@ -305,6 +305,84 @@ describe("panda class", function () {
 
       expect(fetchesAfter).toEqual(fetchesBefore + 1);
     });
+
+    it("makes multiple concurrent fetches when called simultaneously with stale data (thundering herd)", async () => {
+      const fiveMinsAgo = new Date();
+      fiveMinsAgo.setMinutes(fiveMinsAgo.getMinutes() - 5);
+
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockResolvedValue({ keys: ["PUBLIC KEY"], lastUpdated: fiveMinsAgo });
+
+      const panda = new PanDomainAuthentication(
+        "cookiename",
+        "region",
+        "bucket",
+        "keyfile",
+        () => true,
+      );
+
+      // Wait for the constructor's initial fetch to settle so this.publicKey is an
+      // already-resolved Promise. All concurrent callers will then immediately get
+      // the stale value and each independently decide to re-fetch.
+      await panda.publicKey;
+
+      const fetchCountBefore = (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mock.calls.length;
+
+      // Three concurrent calls: none is awaited before the others start, so all
+      // three read this.publicKey before any of them can update it.
+      await Promise.all([
+        panda.getPublicKey(),
+        panda.getPublicKey(),
+        panda.getPublicKey(),
+      ]);
+
+      const fetchCountAfter = (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mock.calls.length;
+
+      // All three triggered a separate S3 fetch rather than sharing one.
+      expect(fetchCountAfter - fetchCountBefore).toBe(3);
+    });
+
+    it("permanently rejects all subsequent calls after a failed fetch", async () => {
+      const fiveMinsAgo = new Date();
+      fiveMinsAgo.setMinutes(fiveMinsAgo.getMinutes() - 5);
+
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockResolvedValue({ keys: ["PUBLIC KEY"], lastUpdated: fiveMinsAgo });
+
+      const panda = new PanDomainAuthentication(
+        "cookiename",
+        "region",
+        "bucket",
+        "keyfile",
+        () => true,
+      );
+      await panda.publicKey; // let the constructor fetch settle
+
+      // Simulate an S3 failure on the next re-fetch.
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockRejectedValue(new Error("S3 unavailable"));
+
+      // First call: detects stale cache, triggers a fetch, which fails.
+      // this.publicKey is now left as the rejected Promise.
+      await expect(panda.getPublicKey()).rejects.toThrow("S3 unavailable");
+
+      // S3 is healthy again.
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockResolvedValue({ keys: ["FRESH KEY"], lastUpdated: new Date() });
+
+      // But the class is permanently broken: this.publicKey is still the rejected
+      // Promise, so subsequent calls fail at `await this.publicKey` without ever
+      // reaching the fetchPublicKey call that would recover.
+      await expect(panda.getPublicKey()).rejects.toThrow("S3 unavailable");
+    });
   });
 
   describe("verify", () => {
