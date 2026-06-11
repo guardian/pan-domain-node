@@ -1,5 +1,11 @@
 # @guardian/pan-domain-node
 
+## 1.2.5
+
+### Patch Changes
+
+- 1ad6ced: update aws packages and node version
+
 ## 1.2.4
 
 ### Patch Changes
