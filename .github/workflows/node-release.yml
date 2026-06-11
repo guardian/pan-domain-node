@@ -1,97 +1,31 @@
-name: Publish to npm
-
+name: CD
 on:
-  # Trigger on a label being added to a PR, and publish a canary versions of all packages with waiting changesets to npm.
-  # Use `make changeset` to add a new changeset.
-  pull_request:
-    types: [labeled, synchronize]
-  # Trigger for standard (changesets) release after CI on main
-  workflow_run:
-    workflows: [CI]
-    branches: [main]
-    types: [completed]
-  workflow_dispatch: # Allow manual triggering of the workflow
-
-permissions:
-  contents: write
-  pull-requests: write
-  id-token: write
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-  release-canaries:
-    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, '🐥 Canaries')) || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          # This makes Actions fetch all Git history so that Changesets can
-          # generate changelogs with the correct commits
-          fetch-depth: 0
-
-      - uses: ./.github/actions/setup-node-and-npm-for-publishing
-
-      - name: Install
-        run: npm ci
-
-      - name: Version
-        run: npx changeset version --snapshot canary
-
-      # after the versioning the new versions need to be reflected in the lockfile.
-      # https://github.com/changesets/changesets/issues/421
-      - run: npm install --package-lock-only
-
-      - name: Build
-        run: npm run build
-
-      - name: Test
-        run: npm run test
-
-      - name: Release
-        uses: changesets/action@v1
-        id: publish-canary
-        with:
-          # currently, you have to tag releases in git to get the action output to appear
-          # https://github.com/changesets/action/issues/141
-          # publish: npx changeset publish --no-git-tag --tag canary
-          publish: npx changeset publish --tag canary
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: actions/github-script@v8
-        if: steps.publish-canary.outputs.published == 'true'
-        with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
-          script: |
-            const publishedPackages = ${{ steps.publish-canary.outputs.publishedPackages }};
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: [
-                `> [!NOTE]`,
-                `> The following canaries were published to NPM:`,
-                `>`,
-                ...publishedPackages.map((pkg) => `> - [\`${pkg.name}@${pkg.version}\`](https://www.npmjs.com/package/${pkg.name}/v/${pkg.version})`),
-                '',
-                '🐥'
-              ].join('\n')
-            });
-            github.rest.issues.removeLabel({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              name: '🐥 Canaries',
-            });
   CD:
-    name: Manage main-branch release
-    # only run if CI is successful
-    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      id-token: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: "package-lock.json"
 
-      - uses: ./.github/actions/setup-node-and-npm-for-publishing
+      # See https://docs.npmjs.com/trusted-publishers
+      # Find the latest version with `npm info npm@latest version`
+      - name: Install suitable NPM version for trusted publishing
+        run: npm install -g npm@11.10.1
 
       - name: Install
         run: npm ci
