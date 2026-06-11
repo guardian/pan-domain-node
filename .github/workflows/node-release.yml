@@ -10,7 +10,6 @@ on:
     workflows: [CI]
     branches: [main]
     types: [completed]
-  workflow_dispatch: # Allow manual triggering of the workflow
 
 permissions:
   contents: write
@@ -19,7 +18,7 @@ permissions:
 
 jobs:
   release-canaries:
-    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, '🐥 Canaries')) || github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, '🐥 Canaries') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
