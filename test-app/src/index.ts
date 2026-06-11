@@ -11,14 +11,14 @@ const credentialsProvider = fromNodeProviderChain({
   profile: "workflow",
 });
 
-const panda = new PanDomainAuthentication(
-  "gutoolsAuth-assym", // cookie name
-  "eu-west-1", // AWS region
-  "pan-domain-auth-settings", // Settings bucket
-  "local.dev-gutools.co.uk.settings.public", // Settings file
-  guardianValidation,
+const panda = await PanDomainAuthentication.builder({
+  cookieName: "gutoolsAuth-assym",
+  region: "eu-west-1",
+  bucket: "pan-domain-auth-settings",
+  keyFile: "local.dev-gutools.co.uk.settings.public",
+  validateUser: guardianValidation,
   credentialsProvider,
-);
+});
 
 const app = new Hono();
 
