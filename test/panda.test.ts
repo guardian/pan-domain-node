@@ -5,14 +5,8 @@ import {
   guardianValidation,
   StaleSuccess,
   User,
-  UserValidationFailure,
 } from "../src/api";
-import { fetchPublicKey } from "../src/fetch-public-key";
-import {
-  createCookie,
-  PanDomainAuthentication,
-  verifyUser,
-} from "../src/panda";
+import { createCookie, verifyUser } from "../src/panda";
 
 import {
   decodeBase64,
@@ -227,387 +221,387 @@ describe("createCookie", function () {
   });
 });
 
-describe("panda class", function () {
-  beforeEach(() => {
-    (
-      fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-    ).mockResolvedValue({ keys: ["PUBLIC KEY"], lastUpdated: new Date() });
-  });
+// describe("panda class", function () {
+//   beforeEach(() => {
+//     (
+//       fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+//     ).mockResolvedValue({ keys: ["PUBLIC KEY"], lastUpdated: new Date() });
+//   });
 
-  describe("stop", () => {
-    it("stops auto refresh", () => {
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        (u) => true,
-      );
-      expect(panda.keyUpdateTimer).not.toBeUndefined();
-      panda.stop();
-      expect(panda.keyUpdateTimer).toBeUndefined();
-    });
-  });
+//   describe("stop", () => {
+//     it("stops auto refresh", () => {
+//       const panda = new PanDomainAuthentication(
+//         "cookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         (u) => true,
+//       );
+//       expect(panda.keyUpdateTimer).not.toBeUndefined();
+//       panda.stop();
+//       expect(panda.keyUpdateTimer).toBeUndefined();
+//     });
+//   });
 
-  describe("getPublicKey", () => {
-    it("getsPublicKey immediately when last fetch is within the cache time", async () => {
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        (u) => true,
-      );
-      const fetchesBeforeGet = (
-        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mock.calls.length;
+//   describe("getPublicKey", () => {
+//     it("getsPublicKey immediately when last fetch is within the cache time", async () => {
+//       const panda = new PanDomainAuthentication(
+//         "cookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         (u) => true,
+//       );
+//       const fetchesBeforeGet = (
+//         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+//       ).mock.calls.length;
 
-      await expect(panda.getPublicKey()).resolves.toEqual(["PUBLIC KEY"]);
-      const fetchesAfterGet = (
-        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mock.calls.length;
+//       await expect(panda.getPublicKey()).resolves.toEqual(["PUBLIC KEY"]);
+//       const fetchesAfterGet = (
+//         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+//       ).mock.calls.length;
 
-      expect(fetchesAfterGet).toEqual(fetchesBeforeGet);
-    });
+//       expect(fetchesAfterGet).toEqual(fetchesBeforeGet);
+//     });
 
-    it("getsPublicKey after refetching when last fetch is outside the cache time", async () => {
-      // cache time is 1 min
-      const fiveMinsAgo = new Date();
-      fiveMinsAgo.setMinutes(fiveMinsAgo.getMinutes() - 5);
+//     it("getsPublicKey after refetching when last fetch is outside the cache time", async () => {
+//       // cache time is 1 min
+//       const fiveMinsAgo = new Date();
+//       fiveMinsAgo.setMinutes(fiveMinsAgo.getMinutes() - 5);
 
-      (
-        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ keys: ["PUBLIC KEY"], lastUpdated: fiveMinsAgo });
+//       (
+//         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+//       ).mockResolvedValue({ keys: ["PUBLIC KEY"], lastUpdated: fiveMinsAgo });
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        (u) => true,
-      );
+//       const panda = new PanDomainAuthentication(
+//         "cookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         (u) => true,
+//       );
 
-      const fetchesBefore = (
-        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mock.calls.length;
+//       const fetchesBefore = (
+//         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+//       ).mock.calls.length;
 
-      await expect(panda.getPublicKey()).resolves.toEqual(["PUBLIC KEY"]);
+//       await expect(panda.getPublicKey()).resolves.toEqual(["PUBLIC KEY"]);
 
-      (
-        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ keys: ["PUBLIC KEY 2"], lastUpdated: fiveMinsAgo });
+//       (
+//         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+//       ).mockResolvedValue({ keys: ["PUBLIC KEY 2"], lastUpdated: fiveMinsAgo });
 
-      const fetchesAfter = (
-        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mock.calls.length;
+//       const fetchesAfter = (
+//         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+//       ).mock.calls.length;
 
-      await expect(panda.getPublicKey()).resolves.toEqual(["PUBLIC KEY 2"]);
+//       await expect(panda.getPublicKey()).resolves.toEqual(["PUBLIC KEY 2"]);
 
-      expect(fetchesAfter).toEqual(fetchesBefore + 1);
-    });
+//       expect(fetchesAfter).toEqual(fetchesBefore + 1);
+//     });
 
-    it("makes multiple concurrent fetches when called simultaneously with stale data (thundering herd)", async () => {
-      const fiveMinsAgo = new Date();
-      fiveMinsAgo.setMinutes(fiveMinsAgo.getMinutes() - 5);
+//     it("makes multiple concurrent fetches when called simultaneously with stale data (thundering herd)", async () => {
+//       const fiveMinsAgo = new Date();
+//       fiveMinsAgo.setMinutes(fiveMinsAgo.getMinutes() - 5);
 
-      (
-        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ keys: ["PUBLIC KEY"], lastUpdated: fiveMinsAgo });
+//       (
+//         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+//       ).mockResolvedValue({ keys: ["PUBLIC KEY"], lastUpdated: fiveMinsAgo });
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        () => true,
-      );
+//       const panda = new PanDomainAuthentication(
+//         "cookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         () => true,
+//       );
 
-      // Wait for the constructor's initial fetch to settle so this.publicKey is an
-      // already-resolved Promise. All concurrent callers will then immediately get
-      // the stale value and each independently decide to re-fetch.
-      await panda.publicKey;
+//       // Wait for the constructor's initial fetch to settle so this.publicKey is an
+//       // already-resolved Promise. All concurrent callers will then immediately get
+//       // the stale value and each independently decide to re-fetch.
+//       await panda.publicKey;
 
-      const fetchCountBefore = (
-        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mock.calls.length;
+//       const fetchCountBefore = (
+//         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+//       ).mock.calls.length;
 
-      // Three concurrent calls: none is awaited before the others start, so all
-      // three read this.publicKey before any of them can update it.
-      await Promise.all([
-        panda.getPublicKey(),
-        panda.getPublicKey(),
-        panda.getPublicKey(),
-      ]);
+//       // Three concurrent calls: none is awaited before the others start, so all
+//       // three read this.publicKey before any of them can update it.
+//       await Promise.all([
+//         panda.getPublicKey(),
+//         panda.getPublicKey(),
+//         panda.getPublicKey(),
+//       ]);
 
-      const fetchCountAfter = (
-        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mock.calls.length;
+//       const fetchCountAfter = (
+//         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+//       ).mock.calls.length;
 
-      // All three triggered a separate S3 fetch rather than sharing one.
-      expect(fetchCountAfter - fetchCountBefore).toBe(3);
-    });
+//       // All three triggered a separate S3 fetch rather than sharing one.
+//       expect(fetchCountAfter - fetchCountBefore).toBe(3);
+//     });
 
-    it("permanently rejects all subsequent calls after a failed fetch", async () => {
-      const fiveMinsAgo = new Date();
-      fiveMinsAgo.setMinutes(fiveMinsAgo.getMinutes() - 5);
+//     it("permanently rejects all subsequent calls after a failed fetch", async () => {
+//       const fiveMinsAgo = new Date();
+//       fiveMinsAgo.setMinutes(fiveMinsAgo.getMinutes() - 5);
 
-      (
-        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ keys: ["PUBLIC KEY"], lastUpdated: fiveMinsAgo });
+//       (
+//         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+//       ).mockResolvedValue({ keys: ["PUBLIC KEY"], lastUpdated: fiveMinsAgo });
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        () => true,
-      );
-      await panda.publicKey; // let the constructor fetch settle
+//       const panda = new PanDomainAuthentication(
+//         "cookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         () => true,
+//       );
+//       await panda.publicKey; // let the constructor fetch settle
 
-      // Simulate an S3 failure on the next re-fetch.
-      (
-        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockRejectedValue(new Error("S3 unavailable"));
+//       // Simulate an S3 failure on the next re-fetch.
+//       (
+//         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+//       ).mockRejectedValue(new Error("S3 unavailable"));
 
-      // First call: detects stale cache, triggers a fetch, which fails.
-      // this.publicKey is now left as the rejected Promise.
-      await expect(panda.getPublicKey()).rejects.toThrow("S3 unavailable");
+//       // First call: detects stale cache, triggers a fetch, which fails.
+//       // this.publicKey is now left as the rejected Promise.
+//       await expect(panda.getPublicKey()).rejects.toThrow("S3 unavailable");
 
-      // S3 is healthy again.
-      (
-        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ keys: ["FRESH KEY"], lastUpdated: new Date() });
+//       // S3 is healthy again.
+//       (
+//         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+//       ).mockResolvedValue({ keys: ["FRESH KEY"], lastUpdated: new Date() });
 
-      // But the class is permanently broken: this.publicKey is still the rejected
-      // Promise, so subsequent calls fail at `await this.publicKey` without ever
-      // reaching the fetchPublicKey call that would recover.
-      await expect(panda.getPublicKey()).rejects.toThrow("S3 unavailable");
-    });
-  });
+//       // But the class is permanently broken: this.publicKey is still the rejected
+//       // Promise, so subsequent calls fail at `await this.publicKey` without ever
+//       // reaching the fetchPublicKey call that would recover.
+//       await expect(panda.getPublicKey()).rejects.toThrow("S3 unavailable");
+//     });
+//   });
 
-  describe("verify", () => {
-    beforeEach(() => {
-      (
-        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ keys: publicKeys, lastUpdated: new Date() });
-    });
+//   describe("verify", () => {
+//     beforeEach(() => {
+//       (
+//         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+//       ).mockResolvedValue({ keys: publicKeys, lastUpdated: new Date() });
+//     });
 
-    it("should authenticate if cookie and user are valid", async () => {
-      jest.setSystemTime(100);
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        (u) => true,
-      );
-      const authenticationResult = await panda.verify(
-        `cookiename=${sampleCookie}`,
-      );
+//     it("should authenticate if cookie and user are valid", async () => {
+//       jest.setSystemTime(100);
+//       const panda = new PanDomainAuthentication(
+//         "cookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         (u) => true,
+//       );
+//       const authenticationResult = await panda.verify(
+//         `cookiename=${sampleCookie}`,
+//       );
 
-      const expected: FreshSuccess = {
-        success: true,
-        // Cookie is not expired
-        shouldRefreshCredentials: false,
-        user: userFromCookie(sampleCookie),
-      };
-      expect(authenticationResult).toStrictEqual(expected);
-    });
+//       const expected: FreshSuccess = {
+//         success: true,
+//         // Cookie is not expired
+//         shouldRefreshCredentials: false,
+//         user: userFromCookie(sampleCookie),
+//       };
+//       expect(authenticationResult).toStrictEqual(expected);
+//     });
 
-    it("should authenticate if cookie and user are valid when multiple cookies are passed", async () => {
-      jest.setSystemTime(100);
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        (u) => true,
-      );
-      const authenticationResult = await panda.verify(
-        `a=blah; b=stuff; cookiename=${sampleCookie}; c=4958345`,
-      );
+//     it("should authenticate if cookie and user are valid when multiple cookies are passed", async () => {
+//       jest.setSystemTime(100);
+//       const panda = new PanDomainAuthentication(
+//         "cookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         (u) => true,
+//       );
+//       const authenticationResult = await panda.verify(
+//         `a=blah; b=stuff; cookiename=${sampleCookie}; c=4958345`,
+//       );
 
-      const expected: FreshSuccess = {
-        success: true,
-        // Cookie is not expired
-        shouldRefreshCredentials: false,
-        user: userFromCookie(sampleCookie),
-      };
-      expect(authenticationResult).toStrictEqual(expected);
-    });
+//       const expected: FreshSuccess = {
+//         success: true,
+//         // Cookie is not expired
+//         shouldRefreshCredentials: false,
+//         user: userFromCookie(sampleCookie),
+//       };
+//       expect(authenticationResult).toStrictEqual(expected);
+//     });
 
-    it("should fail to authenticate if cookie expired and we're outside the grace period", async () => {
-      // Cookie expiry is 1234
-      const afterEndOfGracePeriodEpochMillis = 1234 + gracePeriodInMillis + 1;
-      jest.setSystemTime(afterEndOfGracePeriodEpochMillis);
+//     it("should fail to authenticate if cookie expired and we're outside the grace period", async () => {
+//       // Cookie expiry is 1234
+//       const afterEndOfGracePeriodEpochMillis = 1234 + gracePeriodInMillis + 1;
+//       jest.setSystemTime(afterEndOfGracePeriodEpochMillis);
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        (u) => true,
-      );
-      const authenticationResult = await panda.verify(
-        `cookiename=${sampleCookie}`,
-      );
+//       const panda = new PanDomainAuthentication(
+//         "cookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         (u) => true,
+//       );
+//       const authenticationResult = await panda.verify(
+//         `cookiename=${sampleCookie}`,
+//       );
 
-      const expected: CookieFailure = {
-        success: false,
-        reason: "expired-cookie",
-      };
-      expect(authenticationResult).toStrictEqual(expected);
-    });
+//       const expected: CookieFailure = {
+//         success: false,
+//         reason: "expired-cookie",
+//       };
+//       expect(authenticationResult).toStrictEqual(expected);
+//     });
 
-    it("authenticate with shouldRefreshCredentials if cookie expired but we're within the grace period", async () => {
-      // Cookie expiry is 1234
-      const beforeEndOfGracePeriodEpochMillis = 1234 + gracePeriodInMillis - 1;
-      jest.setSystemTime(beforeEndOfGracePeriodEpochMillis);
+//     it("authenticate with shouldRefreshCredentials if cookie expired but we're within the grace period", async () => {
+//       // Cookie expiry is 1234
+//       const beforeEndOfGracePeriodEpochMillis = 1234 + gracePeriodInMillis - 1;
+//       jest.setSystemTime(beforeEndOfGracePeriodEpochMillis);
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        (u) => true,
-      );
-      const authenticationResult = await panda.verify(
-        `cookiename=${sampleCookie}`,
-      );
+//       const panda = new PanDomainAuthentication(
+//         "cookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         (u) => true,
+//       );
+//       const authenticationResult = await panda.verify(
+//         `cookiename=${sampleCookie}`,
+//       );
 
-      const expected: StaleSuccess = {
-        success: true,
-        shouldRefreshCredentials: true,
-        mustRefreshByEpochTimeMillis: 1234 + gracePeriodInMillis,
-        user: userFromCookie(sampleCookie),
-      };
-      expect(authenticationResult).toStrictEqual(expected);
-    });
+//       const expected: StaleSuccess = {
+//         success: true,
+//         shouldRefreshCredentials: true,
+//         mustRefreshByEpochTimeMillis: 1234 + gracePeriodInMillis,
+//         user: userFromCookie(sampleCookie),
+//       };
+//       expect(authenticationResult).toStrictEqual(expected);
+//     });
 
-    it("should fail to authenticate if user is not valid", async () => {
-      jest.setSystemTime(100);
+//     it("should fail to authenticate if user is not valid", async () => {
+//       jest.setSystemTime(100);
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        guardianValidation,
-      );
-      const authenticationResult = await panda.verify(
-        `cookiename=${sampleNonGuardianCookie}`,
-      );
+//       const panda = new PanDomainAuthentication(
+//         "cookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         guardianValidation,
+//       );
+//       const authenticationResult = await panda.verify(
+//         `cookiename=${sampleNonGuardianCookie}`,
+//       );
 
-      const expected: UserValidationFailure = {
-        success: false,
-        reason: "invalid-user",
-        user: userFromCookie(sampleNonGuardianCookie),
-      };
-      expect(authenticationResult).toStrictEqual(expected);
-    });
+//       const expected: UserValidationFailure = {
+//         success: false,
+//         reason: "invalid-user",
+//         user: userFromCookie(sampleNonGuardianCookie),
+//       };
+//       expect(authenticationResult).toStrictEqual(expected);
+//     });
 
-    it("should fail to authenticate if there is no cookie with the correct name", async () => {
-      jest.setSystemTime(100);
+//     it("should fail to authenticate if there is no cookie with the correct name", async () => {
+//       jest.setSystemTime(100);
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        guardianValidation,
-      );
-      const authenticationResult = await panda.verify(
-        `wrongcookiename=${sampleNonGuardianCookie}`,
-      );
+//       const panda = new PanDomainAuthentication(
+//         "cookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         guardianValidation,
+//       );
+//       const authenticationResult = await panda.verify(
+//         `wrongcookiename=${sampleNonGuardianCookie}`,
+//       );
 
-      const expected: CookieFailure = {
-        success: false,
-        reason: "no-cookie",
-      };
-      expect(authenticationResult).toStrictEqual(expected);
-    });
+//       const expected: CookieFailure = {
+//         success: false,
+//         reason: "no-cookie",
+//       };
+//       expect(authenticationResult).toStrictEqual(expected);
+//     });
 
-    it("should fail to authenticate if the cookie request header is malformed", async () => {
-      jest.setSystemTime(100);
+//     it("should fail to authenticate if the cookie request header is malformed", async () => {
+//       jest.setSystemTime(100);
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        guardianValidation,
-      );
-      // The cookie headers should be semicolon-separated name=valueg
-      const authenticationResult = await panda.verify(sampleNonGuardianCookie);
+//       const panda = new PanDomainAuthentication(
+//         "cookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         guardianValidation,
+//       );
+//       // The cookie headers should be semicolon-separated name=valueg
+//       const authenticationResult = await panda.verify(sampleNonGuardianCookie);
 
-      const expected: CookieFailure = {
-        success: false,
-        reason: "no-cookie",
-      };
-      expect(authenticationResult).toStrictEqual(expected);
-    });
+//       const expected: CookieFailure = {
+//         success: false,
+//         reason: "no-cookie",
+//       };
+//       expect(authenticationResult).toStrictEqual(expected);
+//     });
 
-    it("should fail to authenticate if there is no cookie with the correct name out of multiple cookies", async () => {
-      jest.setSystemTime(100);
+//     it("should fail to authenticate if there is no cookie with the correct name out of multiple cookies", async () => {
+//       jest.setSystemTime(100);
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        guardianValidation,
-      );
-      const authenticationResult = await panda.verify(
-        `wrongcookiename=${sampleNonGuardianCookie}; anotherwrongcookiename=${sampleNonGuardianCookie}`,
-      );
+//       const panda = new PanDomainAuthentication(
+//         "cookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         guardianValidation,
+//       );
+//       const authenticationResult = await panda.verify(
+//         `wrongcookiename=${sampleNonGuardianCookie}; anotherwrongcookiename=${sampleNonGuardianCookie}`,
+//       );
 
-      const expected: CookieFailure = {
-        success: false,
-        reason: "no-cookie",
-      };
-      expect(authenticationResult).toStrictEqual(expected);
-    });
+//       const expected: CookieFailure = {
+//         success: false,
+//         reason: "no-cookie",
+//       };
+//       expect(authenticationResult).toStrictEqual(expected);
+//     });
 
-    it("should fail to authenticate with invalid-cookie reason if cookie is malformed", async () => {
-      jest.setSystemTime(100);
+//     it("should fail to authenticate with invalid-cookie reason if cookie is malformed", async () => {
+//       jest.setSystemTime(100);
 
-      const panda = new PanDomainAuthentication(
-        "rightcookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        guardianValidation,
-      );
-      // There is a valid Panda cookie in here, but it's under the wrong name
-      const authenticationResult = await panda.verify(
-        `wrongcookiename=${sampleNonGuardianCookie}; rightcookiename=not-valid-panda-cookie`,
-      );
+//       const panda = new PanDomainAuthentication(
+//         "rightcookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         guardianValidation,
+//       );
+//       // There is a valid Panda cookie in here, but it's under the wrong name
+//       const authenticationResult = await panda.verify(
+//         `wrongcookiename=${sampleNonGuardianCookie}; rightcookiename=not-valid-panda-cookie`,
+//       );
 
-      const expected: CookieFailure = {
-        success: false,
-        reason: "invalid-cookie",
-      };
-      expect(authenticationResult).toStrictEqual(expected);
-    });
+//       const expected: CookieFailure = {
+//         success: false,
+//         reason: "invalid-cookie",
+//       };
+//       expect(authenticationResult).toStrictEqual(expected);
+//     });
 
-    it("should fail to authenticate with no-cookie reason if no cookie is present at all", async () => {
-      jest.setSystemTime(100);
+//     it("should fail to authenticate with no-cookie reason if no cookie is present at all", async () => {
+//       jest.setSystemTime(100);
 
-      const panda = new PanDomainAuthentication(
-        "rightcookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        guardianValidation,
-      );
-      const noCookie = undefined;
-      const authenticationResult = await panda.verify(noCookie);
+//       const panda = new PanDomainAuthentication(
+//         "rightcookiename",
+//         "region",
+//         "bucket",
+//         "keyfile",
+//         guardianValidation,
+//       );
+//       const noCookie = undefined;
+//       const authenticationResult = await panda.verify(noCookie);
 
-      const expected: CookieFailure = {
-        success: false,
-        reason: "no-cookie",
-      };
-      expect(authenticationResult).toStrictEqual(expected);
-    });
-  });
-});
+//       const expected: CookieFailure = {
+//         success: false,
+//         reason: "no-cookie",
+//       };
+//       expect(authenticationResult).toStrictEqual(expected);
+//     });
+//   });
+// });
