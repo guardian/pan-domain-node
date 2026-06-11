@@ -10,6 +10,7 @@ on:
     workflows: [CI]
     branches: [main]
     types: [completed]
+  workflow_dispatch: # Allow manual triggering of the workflow
 
 permissions:
   contents: write
@@ -18,7 +19,7 @@ permissions:
 
 jobs:
   release-canaries:
-    if: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, '🐥 Canaries') }}
+    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, '🐥 Canaries')) || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -29,15 +30,15 @@ jobs:
 
       - uses: ./.github/actions/setup-node-and-npm-for-publishing
 
+      - name: Install
+        run: npm ci
+
       - name: Version
         run: npx changeset version --snapshot canary
 
       # after the versioning the new versions need to be reflected in the lockfile.
       # https://github.com/changesets/changesets/issues/421
       - run: npm install --package-lock-only
-
-      - name: Install
-        run: npm ci
 
       - name: Build
         run: npm run build
