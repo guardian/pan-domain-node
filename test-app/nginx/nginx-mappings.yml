@@ -1,0 +1,4 @@
+name: pan-domain-test-app
+mappings:
+  - prefix: pan-domain-test-app
+    port: 3011
