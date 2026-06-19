@@ -153,29 +153,26 @@ export class PanDomainAuthentication {
     }
   }
 
-  getPublicKey(): Promise<string> {
-    return this.publicKey.then(({ key, lastUpdated }) => {
-      const now = new Date();
-      const diff = now.getTime() - lastUpdated.getTime();
+  async getPublicKey(): Promise<string> {
+    const publicKeyHolder = await this.publicKey;
+    const now = new Date();
+    const diff = now.getTime() - publicKeyHolder.lastUpdated.getTime();
 
-      if (diff > this.keyCacheTimeInMillis) {
-        this.publicKey = fetchPublicKey(
-          this.s3Client,
-          this.bucket,
-          this.keyFile,
-        );
-        return this.publicKey.then(({ key }) => key);
-      } else {
-        return key;
-      }
-    });
+    if (diff > this.keyCacheTimeInMillis) {
+      this.publicKey = fetchPublicKey(this.s3Client, this.bucket, this.keyFile);
+      const { key } = await this.publicKey;
+      return key;
+    } else {
+      return publicKeyHolder.key;
+    }
   }
 
-  verify(requestCookies: string | undefined): Promise<AuthenticationResult> {
-    return this.getPublicKey().then((publicKey) => {
-      const cookies = cookie.parse(requestCookies ?? "");
-      const pandaCookie = cookies[this.cookieName];
-      return verifyUser(pandaCookie, publicKey, new Date(), this.validateUser);
-    });
+  async verify(
+    requestCookies: string | undefined,
+  ): Promise<AuthenticationResult> {
+    const publicKey = await this.getPublicKey();
+    const cookies = cookie.parse(requestCookies ?? "");
+    const pandaCookie = cookies[this.cookieName];
+    return verifyUser(pandaCookie, publicKey, new Date(), this.validateUser);
   }
 }
