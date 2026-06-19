@@ -61,7 +61,7 @@ jobs:
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            const publishedPackages = ${{ steps.publish-canary.outputs.publishedPackages }};
+            const publishedPackages = JSON.parse(process.env.PUBLISHED_PACKAGES);
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -81,6 +81,8 @@ jobs:
               issue_number: context.issue.number,
               name: '🐥 Canaries',
             });
+        env:
+          PUBLISHED_PACKAGES: ${{ toJSON(steps.publish-canary.outputs.publishedPackages) }}
   CD:
     name: Manage main-branch release
     # only run if CI is successful
