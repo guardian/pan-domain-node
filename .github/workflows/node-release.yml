@@ -82,7 +82,7 @@ jobs:
               name: '🐥 Canaries',
             });
         env:
-          PUBLISHED_PACKAGES: ${{ toJSON(steps.publish-canary.outputs.publishedPackages) }}
+          PUBLISHED_PACKAGES: ${{ steps.publish-canary.outputs.publishedPackages }}
   CD:
     name: Manage main-branch release
     # only run if CI is successful
