@@ -29,7 +29,6 @@ import {
 } from "./fixtures";
 
 jest.mock("../src/fetch-public-key");
-jest.useFakeTimers();
 
 function userFromCookie(cookie: string): User {
   // This function is only used to generate a `User` object from
@@ -38,6 +37,32 @@ function userFromCookie(cookie: string): User {
   // to have to deal with the case of a bad cookie so we just cast to `ParsedCookie`.
   const parsedCookie = parseCookie(cookie) as ParsedCookie;
   return parseUser(parsedCookie.data);
+}
+
+function createDefaultPandaWith(
+  overrides: Partial<{
+    cookieName: string;
+    region: string;
+    bucket: string;
+    keyFile: string;
+    validateUser: typeof guardianValidation;
+  }> = {},
+): PanDomainAuthentication {
+  const defaultParams = {
+    cookieName: "cookiename",
+    region: "region",
+    bucket: "bucket",
+    keyFile: "keyfile",
+    validateUser: () => true,
+  };
+  const finalParams = { ...defaultParams, ...overrides };
+  return new PanDomainAuthentication(
+    finalParams.cookieName,
+    finalParams.region,
+    finalParams.bucket,
+    finalParams.keyFile,
+    finalParams.validateUser,
+  );
 }
 
 describe("verifyUser", function () {
@@ -224,20 +249,20 @@ describe("createCookie", function () {
 
 describe("panda class", function () {
   beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
     (
       fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
     ).mockResolvedValue({ key: "PUBLIC KEY", lastUpdated: new Date() });
   });
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
 
   describe("stop", () => {
-    it("stops auto refresh", () => {
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        (u) => true,
-      );
+    it("stops auto refresh", async () => {
+      const panda = createDefaultPandaWith();
       expect(panda.keyUpdateTimer).not.toBeUndefined();
       panda.stop();
       expect(panda.keyUpdateTimer).toBeUndefined();
@@ -246,13 +271,7 @@ describe("panda class", function () {
 
   describe("getPublicKey", () => {
     it("getsPublicKey immediately when last fetch is within the cache time", async () => {
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        (u) => true,
-      );
+      const panda = createDefaultPandaWith();
       const fetchesBeforeGet = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mock.calls.length;
@@ -274,13 +293,7 @@ describe("panda class", function () {
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mockResolvedValue({ key: "PUBLIC KEY", lastUpdated: fiveMinsAgo });
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        (u) => true,
-      );
+      const panda = createDefaultPandaWith();
 
       const fetchesBefore = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
@@ -311,13 +324,7 @@ describe("panda class", function () {
 
     it("should authenticate if cookie and user are valid", async () => {
       jest.setSystemTime(100);
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        (u) => true,
-      );
+      const panda = createDefaultPandaWith();
       const authenticationResult = await panda.verify(
         `cookiename=${sampleCookie}`,
       );
@@ -333,13 +340,7 @@ describe("panda class", function () {
 
     it("should authenticate if cookie and user are valid when multiple cookies are passed", async () => {
       jest.setSystemTime(100);
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        (u) => true,
-      );
+      const panda = createDefaultPandaWith();
       const authenticationResult = await panda.verify(
         `a=blah; b=stuff; cookiename=${sampleCookie}; c=4958345`,
       );
@@ -358,13 +359,7 @@ describe("panda class", function () {
       const afterEndOfGracePeriodEpochMillis = 1234 + gracePeriodInMillis + 1;
       jest.setSystemTime(afterEndOfGracePeriodEpochMillis);
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        (u) => true,
-      );
+      const panda = createDefaultPandaWith();
       const authenticationResult = await panda.verify(
         `cookiename=${sampleCookie}`,
       );
@@ -381,13 +376,7 @@ describe("panda class", function () {
       const beforeEndOfGracePeriodEpochMillis = 1234 + gracePeriodInMillis - 1;
       jest.setSystemTime(beforeEndOfGracePeriodEpochMillis);
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        (u) => true,
-      );
+      const panda = createDefaultPandaWith();
       const authenticationResult = await panda.verify(
         `cookiename=${sampleCookie}`,
       );
@@ -404,13 +393,9 @@ describe("panda class", function () {
     it("should fail to authenticate if user is not valid", async () => {
       jest.setSystemTime(100);
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        guardianValidation,
-      );
+      const panda = createDefaultPandaWith({
+        validateUser: guardianValidation,
+      });
       const authenticationResult = await panda.verify(
         `cookiename=${sampleNonGuardianCookie}`,
       );
@@ -426,13 +411,9 @@ describe("panda class", function () {
     it("should fail to authenticate if there is no cookie with the correct name", async () => {
       jest.setSystemTime(100);
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        guardianValidation,
-      );
+      const panda = createDefaultPandaWith({
+        validateUser: guardianValidation,
+      });
       const authenticationResult = await panda.verify(
         `wrongcookiename=${sampleNonGuardianCookie}`,
       );
@@ -447,13 +428,9 @@ describe("panda class", function () {
     it("should fail to authenticate if the cookie request header is malformed", async () => {
       jest.setSystemTime(100);
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        guardianValidation,
-      );
+      const panda = createDefaultPandaWith({
+        validateUser: guardianValidation,
+      });
       // The cookie headers should be semicolon-separated name=valueg
       const authenticationResult = await panda.verify(sampleNonGuardianCookie);
 
@@ -467,13 +444,9 @@ describe("panda class", function () {
     it("should fail to authenticate if there is no cookie with the correct name out of multiple cookies", async () => {
       jest.setSystemTime(100);
 
-      const panda = new PanDomainAuthentication(
-        "cookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        guardianValidation,
-      );
+      const panda = createDefaultPandaWith({
+        validateUser: guardianValidation,
+      });
       const authenticationResult = await panda.verify(
         `wrongcookiename=${sampleNonGuardianCookie}; anotherwrongcookiename=${sampleNonGuardianCookie}`,
       );
@@ -488,13 +461,10 @@ describe("panda class", function () {
     it("should fail to authenticate with invalid-cookie reason if cookie is malformed", async () => {
       jest.setSystemTime(100);
 
-      const panda = new PanDomainAuthentication(
-        "rightcookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        guardianValidation,
-      );
+      const panda = createDefaultPandaWith({
+        cookieName: "rightcookiename",
+        validateUser: guardianValidation,
+      });
       // There is a valid Panda cookie in here, but it's under the wrong name
       const authenticationResult = await panda.verify(
         `wrongcookiename=${sampleNonGuardianCookie}; rightcookiename=not-valid-panda-cookie`,
@@ -510,13 +480,10 @@ describe("panda class", function () {
     it("should fail to authenticate with no-cookie reason if no cookie is present at all", async () => {
       jest.setSystemTime(100);
 
-      const panda = new PanDomainAuthentication(
-        "rightcookiename",
-        "region",
-        "bucket",
-        "keyfile",
-        guardianValidation,
-      );
+      const panda = createDefaultPandaWith({
+        cookieName: "rightcookiename",
+        validateUser: guardianValidation,
+      });
       const noCookie = undefined;
       const authenticationResult = await panda.verify(noCookie);
 
@@ -525,6 +492,81 @@ describe("panda class", function () {
         reason: "no-cookie",
       };
       expect(authenticationResult).toStrictEqual(expected);
+    });
+  });
+
+  describe("refresh behaviour", () => {
+    beforeEach(() => {
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockResolvedValue({ key: publicKey, lastUpdated: new Date() });
+    });
+
+    it("should refresh the public key on a schedule", async () => {
+      const _panda = createDefaultPandaWith();
+      const fetchesBefore = (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mock.calls.length;
+
+      /**
+       * Advance time by 2 minutes, which is longer than the cache time of 1 minute.
+       * advanceTimersByTimeAsync also flushes async timer callbacks (e.g. the async setInterval).
+       */
+      await jest.advanceTimersByTimeAsync(2 * 60 * 1000);
+
+      const fetchesAfter = (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mock.calls.length;
+
+      expect(fetchesAfter).toBeGreaterThan(fetchesBefore);
+    });
+
+    it("should refresh the public key when 'verify' is called after the cache time has elapsed", async () => {
+      const panda = createDefaultPandaWith({
+        validateUser: guardianValidation,
+      });
+      panda.stop(); // Stop the auto-refresh so we can control when the refresh happens
+      const fetchesBefore = (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mock.calls.length;
+
+      /**
+       * Advance time by 2 minutes, which is longer than the cache time of 1 minute.
+       * advanceTimersByTimeAsync also flushes async timer callbacks (e.g. the async setInterval).
+       */
+      await jest.advanceTimersByTimeAsync(2 * 60 * 1000);
+
+      const fetchesAfterWait = (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mock.calls.length;
+
+      expect(fetchesAfterWait).toEqual(fetchesBefore);
+
+      await panda.verify(`cookiename=${sampleCookie}`);
+
+      const fetchesAfter = (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mock.calls.length;
+
+      expect(fetchesAfter).toBeGreaterThan(fetchesBefore);
+    });
+
+    it("should use the cached key when 'verify' is called if the cache time has not elapsed", async () => {
+      const panda = createDefaultPandaWith({
+        validateUser: guardianValidation,
+      });
+      panda.stop(); // Stop the auto-refresh so we can control when the refresh happens
+      const fetchesBefore = (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mock.calls.length;
+
+      await panda.verify(`cookiename=${sampleCookie}`);
+
+      const fetchesAfter = (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mock.calls.length;
+
+      expect(fetchesAfter).toEqual(fetchesBefore);
     });
   });
 });
