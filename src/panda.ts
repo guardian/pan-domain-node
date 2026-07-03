@@ -11,7 +11,14 @@ import {
 } from "./api";
 import { fetchPublicKey, PublicKeyHolder } from "./fetch-public-key";
 import { getErrorMessage } from "./getErrorMessage";
-import { parseCookie, parseUser, sign, verifySignature } from "./utils";
+import {
+  calculateKeyHashId,
+  logKeyDiffs,
+  parseCookie,
+  parseUser,
+  sign,
+  verifySignature,
+} from "./utils";
 
 export function createCookie(user: User, privateKey: string): string {
   let queryParams: string[] = [];
@@ -35,7 +42,7 @@ export function createCookie(user: User, privateKey: string): string {
 
 export function verifyUser(
   pandaCookie: string | undefined,
-  publicKey: string,
+  publicKeys: string[],
   currentTime: Date,
   validateUser: ValidateUserFn,
 ): AuthenticationResult {
@@ -55,11 +62,22 @@ export function verifyUser(
   }
   const { data, signature } = parsedCookie;
 
-  if (!verifySignature(data, signature, publicKey)) {
+  const maybeValidSignatureKey = publicKeys.find((key) =>
+    verifySignature(data, signature, key),
+  );
+
+  if (!maybeValidSignatureKey) {
     return {
       success: false,
       reason: "invalid-cookie",
     };
+  } else {
+    console.log(
+      `Successfully verified cookie signature with one of the public keys. Key hash: ${calculateKeyHashId(
+        maybeValidSignatureKey,
+      )}
+    `,
+    );
   }
 
   const currentTimestampInMillis = currentTime.getTime();
@@ -172,7 +190,7 @@ export class PanDomainAuthentication {
     this.s3Client = s3Client;
 
     this.keyUpdateTimer = setInterval(
-      () => this.getPublicKey(),
+      () => this.getPublicKeys(),
       this.keyCacheTimeInMillis,
     );
   }
@@ -185,7 +203,7 @@ export class PanDomainAuthentication {
     }
   }
 
-  async getPublicKey(): Promise<string> {
+  async getPublicKeys(): Promise<string[]> {
     const publicKeyHolder = this.publicKey;
     const now = new Date();
     const diff = now.getTime() - publicKeyHolder.lastUpdated.getTime();
@@ -197,29 +215,31 @@ export class PanDomainAuthentication {
           bucket: this.bucket,
           keyFile: this.keyFile,
         });
-        const { key } = newKeyHolder;
+        const { keys } = newKeyHolder;
         this.publicKey = newKeyHolder;
 
-        return key;
+        logKeyDiffs(publicKeyHolder.keys, keys);
+
+        return keys;
       } catch (error) {
         console.error(
           `Error fetching public key from S3, falling back to cached key. Error: ${getErrorMessage(
             error,
           )}`,
         );
-        return publicKeyHolder.key;
+        return publicKeyHolder.keys;
       }
     } else {
-      return publicKeyHolder.key;
+      return publicKeyHolder.keys;
     }
   }
 
   async verify(
     requestCookies: string | undefined,
   ): Promise<AuthenticationResult> {
-    const publicKey = await this.getPublicKey();
+    const publicKeys = await this.getPublicKeys();
     const cookies = cookie.parse(requestCookies ?? "");
     const pandaCookie = cookies[this.cookieName];
-    return verifyUser(pandaCookie, publicKey, new Date(), this.validateUser);
+    return verifyUser(pandaCookie, publicKeys, new Date(), this.validateUser);
   }
 }
