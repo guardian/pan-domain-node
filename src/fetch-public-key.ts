@@ -3,7 +3,7 @@ import * as ini from "ini";
 import { base64ToPEM } from "./utils";
 
 export interface PublicKeyHolder {
-  key: string;
+  keys: string[];
   lastUpdated: Date;
 }
 
@@ -38,17 +38,26 @@ export function fetchPublicKey({
     });
 }
 
+// example: alsoAccept.0.publicKey
+const isAlsoAcceptedKey = (key: string): boolean =>
+  key.startsWith("alsoAccept.") && key.endsWith(".publicKey");
+
 export function parseKeysFromIni(pandaConfigIni: string): PublicKeyHolder {
-  const config: Record<string, string> = ini.parse(pandaConfigIni);
-  if (config.publicKey) {
-    return {
-      key: base64ToPEM(config.publicKey, "PUBLIC"),
-      lastUpdated: new Date(),
-    };
-  } else {
+  const config = ini.parse(pandaConfigIni);
+  const maybePublicKey = config.publicKey;
+  if (!maybePublicKey) {
     console.log(
       `Failed to retrieve panda public key from ${JSON.stringify(config)}`,
     );
     throw new Error("Missing publicKey setting from config");
   }
+
+  const alsoAcceptedKeys: string[] = Object.entries(config)
+    .filter(([key, _value]) => isAlsoAcceptedKey(key))
+    .map(([_key, value]) => base64ToPEM(value, "PUBLIC"));
+
+  return {
+    keys: [base64ToPEM(config.publicKey, "PUBLIC"), ...alsoAcceptedKeys],
+    lastUpdated: new Date(),
+  };
 }
