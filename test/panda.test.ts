@@ -16,6 +16,7 @@ import {
 } from "../src/panda";
 
 import {
+  base64ToPEM,
   decodeBase64,
   parseCookie,
   ParsedCookie,
@@ -63,7 +64,7 @@ describe("verifyUser", function () {
       reason: "no-cookie",
     };
     expect(
-      verifyUser(undefined, "", new Date(0), guardianValidation),
+      verifyUser(undefined, [""], new Date(0), guardianValidation),
     ).toStrictEqual(expected);
   });
 
@@ -244,7 +245,7 @@ describe("panda class", function () {
     jest.useFakeTimers();
     (
       fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-    ).mockResolvedValue({ key: "PUBLIC KEY", lastUpdated: new Date() });
+    ).mockResolvedValue({ keys: ["PUBLIC KEY"], lastUpdated: new Date() });
   });
   afterEach(() => {
     jest.runOnlyPendingTimers();
@@ -267,7 +268,7 @@ describe("panda class", function () {
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mock.calls.length;
 
-      await expect(panda.getPublicKey()).resolves.toEqual("PUBLIC KEY");
+      await expect(panda.getPublicKeys()).resolves.toEqual(["PUBLIC KEY"]);
       const fetchesAfterGet = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mock.calls.length;
@@ -282,7 +283,7 @@ describe("panda class", function () {
 
       (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ key: "PUBLIC KEY", lastUpdated: fiveMinsAgo });
+      ).mockResolvedValue({ keys: ["PUBLIC KEY"], lastUpdated: fiveMinsAgo });
 
       const panda = await createDefaultPandaWith();
 
@@ -290,17 +291,17 @@ describe("panda class", function () {
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mock.calls.length;
 
-      await expect(panda.getPublicKey()).resolves.toEqual("PUBLIC KEY");
+      await expect(panda.getPublicKeys()).resolves.toEqual(["PUBLIC KEY"]);
 
       (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ key: "PUBLIC KEY 2", lastUpdated: fiveMinsAgo });
+      ).mockResolvedValue({ keys: ["PUBLIC KEY 2"], lastUpdated: fiveMinsAgo });
 
       const fetchesAfter = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mock.calls.length;
 
-      await expect(panda.getPublicKey()).resolves.toEqual("PUBLIC KEY 2");
+      await expect(panda.getPublicKeys()).resolves.toEqual(["PUBLIC KEY 2"]);
 
       expect(fetchesAfter).toEqual(fetchesBefore + 1);
     });
@@ -322,7 +323,7 @@ describe("panda class", function () {
 
       (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ key: "PUBLIC KEY", lastUpdated: fiveMinsAgo });
+      ).mockResolvedValue({ keys: ["PUBLIC KEY"], lastUpdated: fiveMinsAgo });
 
       const panda = await createDefaultPandaWith();
 
@@ -334,7 +335,7 @@ describe("panda class", function () {
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mockRejectedValue(new Error("Failed to fetch public key"));
 
-      await expect(panda.getPublicKey()).resolves.toEqual("PUBLIC KEY");
+      await expect(panda.getPublicKeys()).resolves.toEqual(["PUBLIC KEY"]);
 
       const fetchesAfter = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
@@ -348,7 +349,7 @@ describe("panda class", function () {
     beforeEach(() => {
       (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ key: publicKey, lastUpdated: new Date() });
+      ).mockResolvedValue({ keys: publicKey, lastUpdated: new Date() });
     });
 
     it("should authenticate if cookie and user are valid", async () => {
@@ -372,6 +373,29 @@ describe("panda class", function () {
       const panda = await createDefaultPandaWith();
       const authenticationResult = await panda.verify(
         `a=blah; b=stuff; cookiename=${sampleCookie}; c=4958345`,
+      );
+
+      const expected: FreshSuccess = {
+        success: true,
+        // Cookie is not expired
+        shouldRefreshCredentials: false,
+        user: userFromCookie(sampleCookie),
+      };
+      expect(authenticationResult).toStrictEqual(expected);
+    });
+
+    it("should authenticate if one of the available public keys is valid", async () => {
+      jest.setSystemTime(100);
+      jest.clearAllMocks();
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockResolvedValue({
+        keys: [base64ToPEM("OTHER KEY", "PUBLIC"), publicKey[0]],
+        lastUpdated: new Date(),
+      });
+      const panda = await createDefaultPandaWith();
+      const authenticationResult = await panda.verify(
+        `cookiename=${sampleCookie}`,
       );
 
       const expected: FreshSuccess = {
@@ -528,7 +552,7 @@ describe("panda class", function () {
     beforeEach(() => {
       (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ key: publicKey, lastUpdated: new Date() });
+      ).mockResolvedValue({ keys: publicKey, lastUpdated: new Date() });
     });
 
     it("should refresh the public key on a schedule", async () => {
