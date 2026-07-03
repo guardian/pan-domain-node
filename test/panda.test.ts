@@ -9,6 +9,7 @@ import {
 } from "../src/api";
 import { fetchPublicKey } from "../src/fetch-public-key";
 import {
+  BuilderParams,
   createCookie,
   PanDomainAuthentication,
   verifyUser,
@@ -39,30 +40,20 @@ function userFromCookie(cookie: string): User {
   return parseUser(parsedCookie.data);
 }
 
-function createDefaultPandaWith(
-  overrides: Partial<{
-    cookieName: string;
-    region: string;
-    bucket: string;
-    keyFile: string;
-    validateUser: typeof guardianValidation;
-  }> = {},
-): PanDomainAuthentication {
-  const defaultParams = {
+async function createDefaultPandaWith(
+  overrides: Partial<BuilderParams> = {},
+): Promise<PanDomainAuthentication> {
+  const defaultParams: BuilderParams = {
     cookieName: "cookiename",
     region: "region",
     bucket: "bucket",
     keyFile: "keyfile",
     validateUser: () => true,
   };
-  const finalParams = { ...defaultParams, ...overrides };
-  return new PanDomainAuthentication(
-    finalParams.cookieName,
-    finalParams.region,
-    finalParams.bucket,
-    finalParams.keyFile,
-    finalParams.validateUser,
-  );
+  return await PanDomainAuthentication.builder({
+    ...defaultParams,
+    ...overrides,
+  });
 }
 
 describe("verifyUser", function () {
@@ -249,8 +240,8 @@ describe("createCookie", function () {
 
 describe("panda class", function () {
   beforeEach(() => {
-    jest.useFakeTimers();
     jest.clearAllMocks();
+    jest.useFakeTimers();
     (
       fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
     ).mockResolvedValue({ key: "PUBLIC KEY", lastUpdated: new Date() });
@@ -262,7 +253,7 @@ describe("panda class", function () {
 
   describe("stop", () => {
     it("stops auto refresh", async () => {
-      const panda = createDefaultPandaWith();
+      const panda = await createDefaultPandaWith();
       expect(panda.keyUpdateTimer).not.toBeUndefined();
       panda.stop();
       expect(panda.keyUpdateTimer).toBeUndefined();
@@ -271,7 +262,7 @@ describe("panda class", function () {
 
   describe("getPublicKey", () => {
     it("getsPublicKey immediately when last fetch is within the cache time", async () => {
-      const panda = createDefaultPandaWith();
+      const panda = await createDefaultPandaWith();
       const fetchesBeforeGet = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mock.calls.length;
@@ -293,7 +284,7 @@ describe("panda class", function () {
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mockResolvedValue({ key: "PUBLIC KEY", lastUpdated: fiveMinsAgo });
 
-      const panda = createDefaultPandaWith();
+      const panda = await createDefaultPandaWith();
 
       const fetchesBefore = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
@@ -313,6 +304,44 @@ describe("panda class", function () {
 
       expect(fetchesAfter).toEqual(fetchesBefore + 1);
     });
+
+    it("throws if fetchPublicKey fails as part of initialisation via builder method", async () => {
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockRejectedValue(new Error("Failed to fetch public key"));
+
+      await expect(createDefaultPandaWith()).rejects.toThrow(
+        "Failed to fetch public key",
+      );
+    });
+
+    it("recovers and retains the cached key if fetchPublicKey fails after initialisation", async () => {
+      // cache time is 1 min
+      const fiveMinsAgo = new Date();
+      fiveMinsAgo.setMinutes(fiveMinsAgo.getMinutes() - 5);
+
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockResolvedValue({ key: "PUBLIC KEY", lastUpdated: fiveMinsAgo });
+
+      const panda = await createDefaultPandaWith();
+
+      const fetchesBefore = (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mock.calls.length;
+
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockRejectedValue(new Error("Failed to fetch public key"));
+
+      await expect(panda.getPublicKey()).resolves.toEqual("PUBLIC KEY");
+
+      const fetchesAfter = (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mock.calls.length;
+
+      expect(fetchesAfter).toEqual(fetchesBefore + 1);
+    });
   });
 
   describe("verify", () => {
@@ -324,7 +353,7 @@ describe("panda class", function () {
 
     it("should authenticate if cookie and user are valid", async () => {
       jest.setSystemTime(100);
-      const panda = createDefaultPandaWith();
+      const panda = await createDefaultPandaWith();
       const authenticationResult = await panda.verify(
         `cookiename=${sampleCookie}`,
       );
@@ -340,7 +369,7 @@ describe("panda class", function () {
 
     it("should authenticate if cookie and user are valid when multiple cookies are passed", async () => {
       jest.setSystemTime(100);
-      const panda = createDefaultPandaWith();
+      const panda = await createDefaultPandaWith();
       const authenticationResult = await panda.verify(
         `a=blah; b=stuff; cookiename=${sampleCookie}; c=4958345`,
       );
@@ -359,7 +388,7 @@ describe("panda class", function () {
       const afterEndOfGracePeriodEpochMillis = 1234 + gracePeriodInMillis + 1;
       jest.setSystemTime(afterEndOfGracePeriodEpochMillis);
 
-      const panda = createDefaultPandaWith();
+      const panda = await createDefaultPandaWith();
       const authenticationResult = await panda.verify(
         `cookiename=${sampleCookie}`,
       );
@@ -376,7 +405,7 @@ describe("panda class", function () {
       const beforeEndOfGracePeriodEpochMillis = 1234 + gracePeriodInMillis - 1;
       jest.setSystemTime(beforeEndOfGracePeriodEpochMillis);
 
-      const panda = createDefaultPandaWith();
+      const panda = await createDefaultPandaWith();
       const authenticationResult = await panda.verify(
         `cookiename=${sampleCookie}`,
       );
@@ -393,7 +422,7 @@ describe("panda class", function () {
     it("should fail to authenticate if user is not valid", async () => {
       jest.setSystemTime(100);
 
-      const panda = createDefaultPandaWith({
+      const panda = await createDefaultPandaWith({
         validateUser: guardianValidation,
       });
       const authenticationResult = await panda.verify(
@@ -411,7 +440,7 @@ describe("panda class", function () {
     it("should fail to authenticate if there is no cookie with the correct name", async () => {
       jest.setSystemTime(100);
 
-      const panda = createDefaultPandaWith({
+      const panda = await createDefaultPandaWith({
         validateUser: guardianValidation,
       });
       const authenticationResult = await panda.verify(
@@ -428,7 +457,7 @@ describe("panda class", function () {
     it("should fail to authenticate if the cookie request header is malformed", async () => {
       jest.setSystemTime(100);
 
-      const panda = createDefaultPandaWith({
+      const panda = await createDefaultPandaWith({
         validateUser: guardianValidation,
       });
       // The cookie headers should be semicolon-separated name=valueg
@@ -444,7 +473,7 @@ describe("panda class", function () {
     it("should fail to authenticate if there is no cookie with the correct name out of multiple cookies", async () => {
       jest.setSystemTime(100);
 
-      const panda = createDefaultPandaWith({
+      const panda = await createDefaultPandaWith({
         validateUser: guardianValidation,
       });
       const authenticationResult = await panda.verify(
@@ -461,7 +490,7 @@ describe("panda class", function () {
     it("should fail to authenticate with invalid-cookie reason if cookie is malformed", async () => {
       jest.setSystemTime(100);
 
-      const panda = createDefaultPandaWith({
+      const panda = await createDefaultPandaWith({
         cookieName: "rightcookiename",
         validateUser: guardianValidation,
       });
@@ -480,7 +509,7 @@ describe("panda class", function () {
     it("should fail to authenticate with no-cookie reason if no cookie is present at all", async () => {
       jest.setSystemTime(100);
 
-      const panda = createDefaultPandaWith({
+      const panda = await createDefaultPandaWith({
         cookieName: "rightcookiename",
         validateUser: guardianValidation,
       });
@@ -503,7 +532,8 @@ describe("panda class", function () {
     });
 
     it("should refresh the public key on a schedule", async () => {
-      const _panda = createDefaultPandaWith();
+      const _panda = await createDefaultPandaWith();
+
       const fetchesBefore = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mock.calls.length;
@@ -522,10 +552,12 @@ describe("panda class", function () {
     });
 
     it("should refresh the public key when 'verify' is called after the cache time has elapsed", async () => {
-      const panda = createDefaultPandaWith({
+      const panda = await createDefaultPandaWith({
         validateUser: guardianValidation,
       });
+
       panda.stop(); // Stop the auto-refresh so we can control when the refresh happens
+
       const fetchesBefore = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mock.calls.length;
@@ -552,10 +584,12 @@ describe("panda class", function () {
     });
 
     it("should use the cached key when 'verify' is called if the cache time has not elapsed", async () => {
-      const panda = createDefaultPandaWith({
+      const panda = await createDefaultPandaWith({
         validateUser: guardianValidation,
       });
+
       panda.stop(); // Stop the auto-refresh so we can control when the refresh happens
+
       const fetchesBefore = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mock.calls.length;

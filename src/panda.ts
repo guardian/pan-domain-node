@@ -10,6 +10,7 @@ import {
   ValidateUserFn,
 } from "./api";
 import { fetchPublicKey, PublicKeyHolder } from "./fetch-public-key";
+import { getErrorMessage } from "./getErrorMessage";
 import { parseCookie, parseUser, sign, verifySignature } from "./utils";
 
 export function createCookie(user: User, privateKey: string): string {
@@ -107,38 +108,68 @@ export function verifyUser(
   }
 }
 
-export class PanDomainAuthentication {
+export type BuilderParams = {
   cookieName: string;
   region: string;
   bucket: string;
   keyFile: string;
   validateUser: ValidateUserFn;
+  credentialsProvider?: AwsCredentialIdentityProvider;
+};
 
-  publicKey: Promise<PublicKeyHolder>;
+export class PanDomainAuthentication {
+  cookieName: string;
+  bucket: string;
+  keyFile: string;
+  validateUser: ValidateUserFn;
+
+  publicKey: PublicKeyHolder;
   keyCacheTimeInMillis: number = 60 * 1000; // 1 minute
   keyUpdateTimer?: NodeJS.Timeout;
   s3Client: S3;
 
+  static async builder({
+    cookieName,
+    region,
+    bucket,
+    keyFile,
+    validateUser,
+    credentialsProvider = fromNodeProviderChain(),
+  }: BuilderParams): Promise<PanDomainAuthentication> {
+    const s3Client = new S3({
+      region,
+      credentials: credentialsProvider,
+    });
+    const publicKey = await fetchPublicKey({
+      s3: s3Client,
+      bucket,
+      keyFile,
+    });
+
+    return new PanDomainAuthentication(
+      cookieName,
+      bucket,
+      s3Client,
+      keyFile,
+      validateUser,
+      publicKey,
+    );
+  }
+
   constructor(
     cookieName: string,
-    region: string,
     bucket: string,
+    s3Client: S3,
     keyFile: string,
     validateUser: ValidateUserFn,
-    credentialsProvider: AwsCredentialIdentityProvider = fromNodeProviderChain(),
+    publicKey: PublicKeyHolder,
   ) {
     this.cookieName = cookieName;
-    this.region = region;
     this.bucket = bucket;
     this.keyFile = keyFile;
+    this.publicKey = publicKey;
     this.validateUser = validateUser;
-
-    const standardAwsConfig = {
-      region: region,
-      credentials: credentialsProvider,
-    };
-    this.s3Client = new S3(standardAwsConfig);
-    this.publicKey = fetchPublicKey(this.s3Client, bucket, keyFile);
+    this.s3Client = s3Client;
 
     this.keyUpdateTimer = setInterval(
       () => this.getPublicKey(),
@@ -150,18 +181,34 @@ export class PanDomainAuthentication {
     if (this.keyUpdateTimer) {
       clearInterval(this.keyUpdateTimer);
       this.keyUpdateTimer = undefined;
+      console.log("Stopped key update timer for PanDomainAuthentication");
     }
   }
 
   async getPublicKey(): Promise<string> {
-    const publicKeyHolder = await this.publicKey;
+    const publicKeyHolder = this.publicKey;
     const now = new Date();
     const diff = now.getTime() - publicKeyHolder.lastUpdated.getTime();
 
     if (diff > this.keyCacheTimeInMillis) {
-      this.publicKey = fetchPublicKey(this.s3Client, this.bucket, this.keyFile);
-      const { key } = await this.publicKey;
-      return key;
+      try {
+        const newKeyHolder = await fetchPublicKey({
+          s3: this.s3Client,
+          bucket: this.bucket,
+          keyFile: this.keyFile,
+        });
+        const { key } = newKeyHolder;
+        this.publicKey = newKeyHolder;
+
+        return key;
+      } catch (error) {
+        console.error(
+          `Error fetching public key from S3, falling back to cached key. Error: ${getErrorMessage(
+            error,
+          )}`,
+        );
+        return publicKeyHolder.key;
+      }
     } else {
       return publicKeyHolder.key;
     }
