@@ -67,6 +67,14 @@ export function verifyUser(
     const user: User = parseUser(data);
     const isExpired = user.expires < currentTimestampInMillis;
 
+    if (!validateUser(user)) {
+      return {
+        success: false,
+        reason: "invalid-user",
+        user,
+      };
+    }
+
     if (isExpired) {
       const gracePeriodEndsAtEpochTimeMillis =
         user.expires + gracePeriodInMillis;
@@ -83,14 +91,6 @@ export function verifyUser(
           user,
         };
       }
-    }
-
-    if (!validateUser(user)) {
-      return {
-        success: false,
-        reason: "invalid-user",
-        user,
-      };
     }
 
     return {
