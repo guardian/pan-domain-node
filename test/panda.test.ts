@@ -431,7 +431,7 @@ describe("panda class", function () {
       const panda = createDefaultPandaWith({
         validateUser: guardianValidation,
       });
-      // The cookie headers should be semicolon-separated name=valueg
+      // The cookie headers should be semicolon-separated name=value
       const authenticationResult = await panda.verify(sampleNonGuardianCookie);
 
       const expected: CookieFailure = {
