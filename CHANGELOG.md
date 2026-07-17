@@ -1,5 +1,12 @@
 # @guardian/pan-domain-node
 
+## 1.2.5
+
+### Patch Changes
+
+- d3852c5: Replaces iniparser dependency with ini.
+- 1ad6ced: update aws packages and node version
+
 ## 1.2.4
 
 ### Patch Changes
