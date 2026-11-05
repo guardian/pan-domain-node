@@ -257,6 +257,61 @@ describe("panda class", function () {
     });
   });
 
+  describe("decode", () => {
+    it("returns the first defined result and stops trying further keys", async () => {
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockResolvedValue({
+        keys: [keyOne, keyTwo, generatePublicKey()],
+        lastUpdated: new Date(),
+      });
+      const panda = await createDefaultPandaWith();
+      const f = jest.fn((key) => (key === keyTwo ? "found" : undefined));
+
+      await expect(panda.decode(f)).resolves.toBe("found");
+      expect(f).toHaveBeenCalledTimes(2);
+    });
+
+    it("treats a throwing callback as a failure for that key and carries on", async () => {
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockResolvedValue({ keys: [keyOne, keyTwo], lastUpdated: new Date() });
+      const panda = await createDefaultPandaWith();
+      const errorSpy = jest.spyOn(console, "error").mockImplementation();
+
+      const result = await panda.decode((key) => {
+        if (key === keyOne) throw new Error("boom");
+        return "ok";
+      });
+
+      expect(result).toBe("ok");
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("boom"));
+      errorSpy.mockRestore();
+    });
+
+    it("awaits async callbacks rather than accepting the first promise", async () => {
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockResolvedValue({ keys: [keyOne, keyTwo], lastUpdated: new Date() });
+      const panda = await createDefaultPandaWith();
+
+      const result = await panda.decode(async (key) =>
+        key === keyTwo ? "second" : undefined,
+      );
+      expect(result).toBe("second");
+    });
+
+    it("returns undefined if no key yields a result", async () => {
+      const panda = await createDefaultPandaWith();
+      await expect(panda.decode(() => undefined)).resolves.toBeUndefined();
+    });
+
+    it("returns falsy-but-defined results", async () => {
+      const panda = await createDefaultPandaWith();
+      await expect(panda.decode(() => "")).resolves.toBe("");
+    });
+  });
+
   describe("verify", () => {
     beforeEach(() => {
       (
