@@ -12,7 +12,12 @@ import {
 } from "./api";
 import { fetchPublicKey, PublicKeyHolder } from "./fetch-public-key";
 import { getErrorMessage } from "./getErrorMessage";
-import { logKeyDiffs, parseUser, sign } from "./utils";
+import {
+  calculateKeyObjectHashId,
+  logKeyDiffs,
+  parseUser,
+  sign,
+} from "./utils";
 import { CookiePayload } from "./cookiePayload";
 
 export function createCookie(user: User, privateKey: string): string {
@@ -199,18 +204,30 @@ export class PanDomainAuthentication {
     }
   }
 
-  async decode<T>(f: (publicKey: crypto.KeyObject) => T | undefined) {
+  async decode<T>(
+    f: (publicKey: crypto.KeyObject) => T | undefined | Promise<T | undefined>,
+  ): Promise<T | undefined> {
     const publicKeys = await this.getPublicKeys();
-    return publicKeys
-      .map((key) => {
-        try {
-          /** @todo maybe log a hash of the key that's been used successfully? */
-          return f(key);
-        } catch (_) {
-          return undefined;
+    for (const key of publicKeys) {
+      try {
+        const result = await f(key);
+        if (result !== undefined) {
+          console.log(
+            `Successfully decoded with one of the public keys. Key hash: ${calculateKeyObjectHashId(
+              key,
+            )}`,
+          );
+          return result;
         }
-      })
-      .find((result) => result !== undefined);
+      } catch (error) {
+        console.error(
+          `Error decoding with public key ${calculateKeyObjectHashId(
+            key,
+          )}: ${getErrorMessage(error)}`,
+        );
+      }
+    }
+    return undefined;
   }
 
   async verify(
@@ -225,7 +242,7 @@ export class PanDomainAuthentication {
       };
     }
     const cookiePayload = CookiePayload.fromCookieText(pandaCookie);
-    if (!cookiePayload) {
+    if (cookiePayload === undefined) {
       return {
         success: false,
         reason: "invalid-cookie",
@@ -234,7 +251,7 @@ export class PanDomainAuthentication {
     const maybeVerifiedData = await this.decode((key) =>
       cookiePayload.payloadTextVerifiedSignedWith(key),
     );
-    if (!maybeVerifiedData) {
+    if (maybeVerifiedData === undefined) {
       return {
         success: false,
         reason: "invalid-cookie",
