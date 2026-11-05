@@ -226,8 +226,8 @@ export class PanDomainAuthentication {
         reason: "invalid-cookie",
       };
     }
-    const maybeVerifiedData = await this.decode(
-      cookiePayload.payloadTextVerifiedSignedWith,
+    const maybeVerifiedData = await this.decode((key) =>
+      cookiePayload.payloadTextVerifiedSignedWith(key),
     );
     if (!maybeVerifiedData) {
       return {
