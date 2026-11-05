@@ -40,7 +40,7 @@ export function createCookie(user: User, privateKey: string): string {
   return queryParamsString + "." + signature;
 }
 
-export function verifyUser(
+export function validateVerifiedPayload(
   pandaCookieData: string,
   currentTime: Date,
   validateUser: ValidateUserFn,
@@ -252,6 +252,6 @@ export class PanDomainAuthentication {
         reason: "invalid-cookie",
       };
     }
-    return verifyUser(maybeVerifiedData, new Date(), this.validateUser);
+    return validateVerifiedPayload(maybeVerifiedData, new Date(), this.validateUser);
   }
 }

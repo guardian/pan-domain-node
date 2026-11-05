@@ -12,7 +12,7 @@ import {
   BuilderParams,
   createCookie,
   PanDomainAuthentication,
-  verifyUser,
+  validateVerifiedPayload,
 } from "../src/panda";
 
 import { CookiePayload, decodeBase64 } from "../src/cookiePayload";
@@ -56,8 +56,8 @@ async function createDefaultPandaWith(
   });
 }
 
-describe("verifyUser", function () {
-  // verifyUser receives cookie data whose signature has already been verified
+describe("validateVerifiedPayload", function () {
+  // validateVerifiedPayload receives cookie data whose signature has already been verified
   test("fail to authenticate if cookie expired and we're outside the grace period", () => {
     // Cookie expires at epoch time 1234
     const afterEndOfGracePeriod = new Date(1234 + gracePeriodInMillis + 1);
@@ -66,7 +66,7 @@ describe("verifyUser", function () {
       reason: "expired-cookie",
     };
     expect(
-      verifyUser(
+      validateVerifiedPayload(
         cookieData(sampleCookie),
         afterEndOfGracePeriod,
         guardianValidation,
@@ -76,7 +76,7 @@ describe("verifyUser", function () {
 
   test("fail to authenticate if user fails validation function", () => {
     expect(
-      verifyUser(
+      validateVerifiedPayload(
         cookieData(sampleCookieWithoutMultifactor),
         new Date(0),
         guardianValidation,
@@ -87,7 +87,7 @@ describe("verifyUser", function () {
       user: userFromCookie(sampleCookieWithoutMultifactor),
     });
     expect(
-      verifyUser(
+      validateVerifiedPayload(
         cookieData(sampleNonGuardianCookie),
         new Date(0),
         guardianValidation,
@@ -107,7 +107,7 @@ describe("verifyUser", function () {
       user: userFromCookie(sampleCookie),
     };
     expect(
-      verifyUser(cookieData(sampleCookie), new Date(0), guardianValidation),
+      validateVerifiedPayload(cookieData(sampleCookie), new Date(0), guardianValidation),
     ).toStrictEqual(expected);
   });
 
@@ -120,12 +120,28 @@ describe("verifyUser", function () {
       mustRefreshByEpochTimeMillis: 1234 + gracePeriodInMillis,
     };
     expect(
-      verifyUser(
+      validateVerifiedPayload(
         cookieData(sampleCookie),
         beforeEndOfGracePeriod,
         guardianValidation,
       ),
     ).toStrictEqual(expected);
+  });
+
+  test("fail to authenticate if user fails validation function, even within the grace period", () => {
+    const user = userFromCookie(sampleCookieWithoutMultifactor);
+    const withinGracePeriod = new Date(user.expires + 1);
+    expect(
+      validateVerifiedPayload(
+        cookieData(sampleCookieWithoutMultifactor),
+        withinGracePeriod,
+        guardianValidation,
+      ),
+    ).toStrictEqual({
+      success: false,
+      reason: "invalid-user",
+      user,
+    });
   });
 });
 
