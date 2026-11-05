@@ -1,0 +1,4 @@
+nodejs                 24.15.0
+aqua:aws/aws-cli       2.33.20
+github:guardian/devenv 20260930-111347
+npm                    12

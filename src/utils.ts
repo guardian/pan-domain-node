@@ -4,66 +4,6 @@ import * as https from "https";
 import { URLSearchParams } from "url";
 import { User } from "./api";
 
-export function decodeBase64(data: string): string {
-  return Buffer.from(data, "base64").toString("utf8");
-}
-
-export type ParsedCookie = { data: string; signature: string };
-
-/**
- * Check if a string is valid base64
- */
-function isBase64(str: string): boolean {
-  try {
-    return Buffer.from(str, "base64").toString("base64") === str;
-  } catch (err) {
-    return false;
-  }
-}
-
-/**
- * Parse a pan-domain user cookie in to data and signature
- * Validates that the cookie is properly formatted (two base64 strings separated by '.')
- */
-export function parseCookie(cookie: string): ParsedCookie | undefined {
-  const cookieRegex = /^([\w\W]*)\.([\w\W]*)$/;
-  const match = cookie.match(cookieRegex);
-
-  if (!match) {
-    return undefined;
-  }
-
-  const [, data, signature] = match;
-
-  if (!isBase64(data) || !isBase64(signature)) {
-    return undefined;
-  }
-
-  return {
-    data: decodeBase64(data),
-    signature: signature,
-  };
-}
-
-/**
- * Verify signed data using nodeJs crypto library
- */
-export function verifySignature(
-  message: string,
-  signature: string,
-  pandaPublicKey: string,
-): boolean {
-  try {
-    return crypto
-      .createVerify("sha256WithRSAEncryption")
-      .update(message, "utf8")
-      .verify(pandaPublicKey, signature, "base64");
-  } catch (_err) {
-    console.error("Error verifying signature");
-    return false;
-  }
-}
-
 export function sign(message: string, privateKey: string): string {
   const sign = crypto.createSign("sha256WithRSAEncryption");
   sign.write(message);
@@ -72,28 +12,10 @@ export function sign(message: string, privateKey: string): string {
   return sign.sign(privateKey, "base64");
 }
 
-const ASCII_NEW_LINE = String.fromCharCode(10);
-
-export function base64ToPEM(key: string, headerFooter: string): string {
-  const PEM_HEADER = `-----BEGIN ${headerFooter} KEY-----`;
-  const PEM_FOOTER = `-----END ${headerFooter} KEY-----`;
-
-  let tmp = [];
-  const ret = [Buffer.from(PEM_HEADER).toString("ascii")];
-
-  for (let i = 0, len = key.length; i < len; i++) {
-    if (i > 0 && i % 64 === 0) {
-      ret.push(tmp.join(""));
-      tmp = [];
-    }
-
-    tmp.push(key[i]);
-  }
-
-  ret.push(tmp.join(""));
-  ret.push(Buffer.from(PEM_FOOTER).toString("ascii"));
-
-  return ret.join(ASCII_NEW_LINE);
+export function toKeyObject(publicKeyString: string): crypto.KeyObject {
+  return crypto.createPublicKey(
+    `-----BEGIN PUBLIC KEY-----\n${publicKeyString}\n-----END PUBLIC KEY-----`,
+  );
 }
 
 export function httpGet(path: string): Promise<string> {
@@ -173,13 +95,8 @@ export function parseUser(data: string): User {
 
 const NumberOfDigitsNecessaryToAvoidBirthdayCollisions: number = 5;
 
-export function calculateKeyHashId(publicKeyPem: string): string {
-  const base64 = publicKeyPem
-    .replace(/-----BEGIN PUBLIC KEY-----/, "")
-    .replace(/-----END PUBLIC KEY-----/, "")
-    .replace(/\s+/g, "");
-  const derBytes = Buffer.from(base64, "base64");
-
+export function calculateKeyObjectHashId(key: crypto.KeyObject): string {
+  const derBytes = key.export({ type: "spki", format: "der" });
   const hashBytes = crypto.createHash("sha256").update(derBytes).digest();
 
   const unsignedValue = BigInt("0x" + hashBytes.toString("hex"));
@@ -193,16 +110,22 @@ export function calculateKeyHashId(publicKeyPem: string): string {
     .slice(0, NumberOfDigitsNecessaryToAvoidBirthdayCollisions);
 }
 
-export function logKeyDiffs(oldKeys: string[], newKeys: string[]): void {
+export function logKeyDiffs(
+  oldKeys: crypto.KeyObject[],
+  newKeys: crypto.KeyObject[],
+): void {
   // Set.difference doesn't seem to be available yet :,(
-
-  const addedKeys = newKeys.filter((key) => !oldKeys.includes(key));
-  const removedKeys = oldKeys.filter((key) => !newKeys.includes(key));
+  const addedKeys = newKeys.filter(
+    (key) => !oldKeys.some((oldKey) => oldKey.equals(key)),
+  );
+  const removedKeys = oldKeys.filter(
+    (key) => !newKeys.some((newKey) => newKey.equals(key)),
+  );
 
   if (addedKeys.length > 0) {
     console.log(
       `New public keys added. Key hashes: ${[...addedKeys]
-        .map(calculateKeyHashId)
+        .map(calculateKeyObjectHashId)
         .join(", ")}`,
     );
   }
@@ -210,7 +133,7 @@ export function logKeyDiffs(oldKeys: string[], newKeys: string[]): void {
   if (removedKeys.length > 0) {
     console.log(
       `Public keys removed. Key hashes: ${[...removedKeys]
-        .map(calculateKeyHashId)
+        .map(calculateKeyObjectHashId)
         .join(", ")}`,
     );
   }
