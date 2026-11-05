@@ -1,9 +1,10 @@
 import { S3 } from "@aws-sdk/client-s3";
 import * as ini from "ini";
-import { base64ToPEM } from "./utils";
+import { toKeyObject } from "./utils";
+import { KeyObject } from "crypto";
 
 export interface PublicKeyHolder {
-  keys: string[];
+  keys: KeyObject[];
   lastUpdated: Date;
 }
 
@@ -52,12 +53,12 @@ export function parseKeysFromIni(pandaConfigIni: string): PublicKeyHolder {
     throw new Error("Missing publicKey setting from config");
   }
 
-  const alsoAcceptedKeys: string[] = Object.entries(config)
+  const alsoAcceptedKeys: KeyObject[] = Object.entries(config)
     .filter(([key, _value]) => isAlsoAcceptedKey(key))
-    .map(([_key, value]) => base64ToPEM(value, "PUBLIC"));
+    .map(([_key, value]) => toKeyObject(value));
 
   return {
-    keys: [base64ToPEM(config.publicKey, "PUBLIC"), ...alsoAcceptedKeys],
+    keys: [toKeyObject(config.publicKey), ...alsoAcceptedKeys],
     lastUpdated: new Date(),
   };
 }

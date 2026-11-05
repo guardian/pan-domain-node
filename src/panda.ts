@@ -1,4 +1,5 @@
 import * as cookie from "cookie";
+import * as crypto from "crypto";
 
 import { S3 } from "@aws-sdk/client-s3";
 import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
@@ -11,14 +12,8 @@ import {
 } from "./api";
 import { fetchPublicKey, PublicKeyHolder } from "./fetch-public-key";
 import { getErrorMessage } from "./getErrorMessage";
-import {
-  calculateKeyHashId,
-  logKeyDiffs,
-  parseCookie,
-  parseUser,
-  sign,
-  verifySignature,
-} from "./utils";
+import { logKeyDiffs, parseUser, sign } from "./utils";
+import { CookiePayload } from "./cookiePayload";
 
 export function createCookie(user: User, privateKey: string): string {
   let queryParams: string[] = [];
@@ -41,49 +36,14 @@ export function createCookie(user: User, privateKey: string): string {
 }
 
 export function verifyUser(
-  pandaCookie: string | undefined,
-  publicKeys: string[],
+  pandaCookieData: string,
   currentTime: Date,
   validateUser: ValidateUserFn,
 ): AuthenticationResult {
-  if (!pandaCookie) {
-    return {
-      success: false,
-      reason: "no-cookie",
-    };
-  }
-
-  const parsedCookie = parseCookie(pandaCookie);
-  if (!parsedCookie) {
-    return {
-      success: false,
-      reason: "invalid-cookie",
-    };
-  }
-  const { data, signature } = parsedCookie;
-
-  const maybeValidSignatureKey = publicKeys.find((key) =>
-    verifySignature(data, signature, key),
-  );
-
-  if (!maybeValidSignatureKey) {
-    return {
-      success: false,
-      reason: "invalid-cookie",
-    };
-  } else {
-    console.log(
-      `Successfully verified cookie signature with one of the public keys. Key hash: ${calculateKeyHashId(
-        maybeValidSignatureKey,
-      )}
-    `,
-    );
-  }
-
   const currentTimestampInMillis = currentTime.getTime();
 
   try {
-    const user: User = parseUser(data);
+    const user: User = parseUser(pandaCookieData);
     const isExpired = user.expires < currentTimestampInMillis;
 
     if (!validateUser(user)) {
@@ -208,7 +168,7 @@ export class PanDomainAuthentication {
     }
   }
 
-  async getPublicKeys(): Promise<string[]> {
+  async getPublicKeys(): Promise<crypto.KeyObject[]> {
     const publicKeyHolder = this.publicKey;
     const now = new Date();
     const diff = now.getTime() - publicKeyHolder.lastUpdated.getTime();
@@ -239,12 +199,47 @@ export class PanDomainAuthentication {
     }
   }
 
+  async decode<T>(f: (publicKey: crypto.KeyObject) => T | undefined) {
+    const publicKeys = await this.getPublicKeys();
+    return publicKeys
+      .map((key) => {
+        try {
+          /** @todo maybe log a hash of the key that's been used successfully? */
+          return f(key);
+        } catch (_) {
+          return undefined;
+        }
+      })
+      .find((result) => result !== undefined);
+  }
+
   async verify(
     requestCookies: string | undefined,
   ): Promise<AuthenticationResult> {
-    const publicKeys = await this.getPublicKeys();
     const cookies = cookie.parse(requestCookies ?? "");
     const pandaCookie = cookies[this.cookieName];
-    return verifyUser(pandaCookie, publicKeys, new Date(), this.validateUser);
+    if (!pandaCookie) {
+      return {
+        success: false,
+        reason: "no-cookie",
+      };
+    }
+    const cookiePayload = CookiePayload.fromCookieText(pandaCookie);
+    if (!cookiePayload) {
+      return {
+        success: false,
+        reason: "invalid-cookie",
+      };
+    }
+    const maybeVerifiedData = await this.decode(
+      cookiePayload.payloadTextVerifiedSignedWith,
+    );
+    if (!maybeVerifiedData) {
+      return {
+        success: false,
+        reason: "invalid-cookie",
+      };
+    }
+    return verifyUser(maybeVerifiedData, new Date(), this.validateUser);
   }
 }
