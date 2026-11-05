@@ -1,55 +1,55 @@
 import { parseKeysFromIni } from "../src/fetch-public-key";
+import { generatePublicKey, toBase64Der } from "./fixtures";
+
+const keyA = generatePublicKey();
+const keyB = generatePublicKey();
+const keyC = generatePublicKey();
+const keyD = generatePublicKey();
+const [a, b, c, d] = [keyA, keyB, keyC, keyD].map(toBase64Der);
 
 describe("parseKeysFromIni", () => {
   it("should parse a valid ini string and return the public key", () => {
     const iniString = [
       "aValue=someValue",
-      "publicKey=abcd123==",
+      `publicKey=${a}`,
       "someOtherKey=someValue",
     ].join("\n");
 
     const result = parseKeysFromIni(iniString);
     expect(result).toHaveProperty("keys");
-    expect(result.keys).toEqual([
-      "-----BEGIN PUBLIC KEY-----\nabcd123==\n-----END PUBLIC KEY-----",
-    ]);
+    expect(result.keys.map(toBase64Der)).toEqual([a]);
     expect(result).toHaveProperty("lastUpdated");
     expect(result.lastUpdated).toBeInstanceOf(Date);
   });
 
   it("should parse also accepted keys from the ini string", () => {
     const iniString = [
-      "publicKey=abcd123==",
-      "alsoAccept.0.publicKey=efgh456==",
-      "alsoAccept.1.publicKey=ijkl789==",
-      "alsoAccept.10.publicKey=mnopqrs==",
+      `publicKey=${a}`,
+      `alsoAccept.0.publicKey=${b}`,
+      `alsoAccept.1.publicKey=${c}`,
+      `alsoAccept.10.publicKey=${d}`,
     ].join("\n");
 
     const result = parseKeysFromIni(iniString);
     expect(result).toHaveProperty("keys");
-    expect(result.keys).toEqual([
-      "-----BEGIN PUBLIC KEY-----\nabcd123==\n-----END PUBLIC KEY-----",
-      "-----BEGIN PUBLIC KEY-----\nefgh456==\n-----END PUBLIC KEY-----",
-      "-----BEGIN PUBLIC KEY-----\nijkl789==\n-----END PUBLIC KEY-----",
-      "-----BEGIN PUBLIC KEY-----\nmnopqrs==\n-----END PUBLIC KEY-----",
-    ]);
+    expect(result.keys.map(toBase64Der)).toEqual([a, b, c, d]);
   });
 
   it("should only parse also accepted keys that match the expected format", () => {
     const iniString = [
-      "publicKey=abcd123==",
-      "alsoAccept.0.publicKey=efgh456==",
+      `publicKey=${a}`,
+      `alsoAccept.0.publicKey=${b}`,
       "alsoAccept.invalidKey=shouldNotBeParsed",
-      "alsoAccept.1.publicKey=ijkl789==",
+      `alsoAccept.1.publicKey=${c}`,
     ].join("\n");
 
     const result = parseKeysFromIni(iniString);
     expect(result).toHaveProperty("keys");
-    expect(result.keys).toEqual([
-      "-----BEGIN PUBLIC KEY-----\nabcd123==\n-----END PUBLIC KEY-----",
-      "-----BEGIN PUBLIC KEY-----\nefgh456==\n-----END PUBLIC KEY-----",
-      "-----BEGIN PUBLIC KEY-----\nijkl789==\n-----END PUBLIC KEY-----",
-    ]);
+    expect(result.keys.map(toBase64Der)).toEqual([a, b, c]);
+  });
+
+  it("should throw if a configured key is not a valid public key", () => {
+    expect(() => parseKeysFromIni("publicKey=notAKey")).toThrow();
   });
 
   it("should throw an error if the publicKey is missing", () => {
