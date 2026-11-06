@@ -28,15 +28,14 @@ import {
 
 jest.mock("../src/fetch-public-key");
 
+/**
+ * We're casting `as CookiePayload` here because the function is only for parsing valid cookies
+ */
 function cookieData(cookie: string): string {
   return (CookiePayload.fromCookieText(cookie) as CookiePayload).data;
 }
 
 function userFromCookie(cookie: string): User {
-  // This function is only used to generate a `User` object from
-  // a well-formed text fixture cookie, in order to check that successful
-  // `AuthenticationResult`s have the right shape. As such we don't want
-  // to have to deal with the case of a bad cookie so we just assert it parses.
   return parseUser(cookieData(cookie));
 }
 
@@ -107,7 +106,11 @@ describe("validateVerifiedPayload", function () {
       user: userFromCookie(sampleCookie),
     };
     expect(
-      validateVerifiedPayload(cookieData(sampleCookie), new Date(0), guardianValidation),
+      validateVerifiedPayload(
+        cookieData(sampleCookie),
+        new Date(0),
+        guardianValidation,
+      ),
     ).toStrictEqual(expected);
   });
 
@@ -189,8 +192,8 @@ describe("panda class", function () {
     });
   });
 
-  describe("getPublicKey", () => {
-    it("getsPublicKey immediately when last fetch is within the cache time", async () => {
+  describe("getPublicKeys", () => {
+    it("getsPublicKeys immediately when last fetch is within the cache time", async () => {
       const panda = await createDefaultPandaWith();
       const fetchesBeforeGet = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
@@ -415,7 +418,10 @@ describe("panda class", function () {
       const panda = await createDefaultPandaWith();
       const [data] = sampleCookie.split(".");
 
-      for (const signature of ["1234", sampleCookie.split(".")[1].slice(0, -2)]) {
+      for (const signature of [
+        "1234",
+        sampleCookie.split(".")[1].slice(0, -2),
+      ]) {
         const result = await panda.verify(`cookiename=${data}.${signature}`);
         expect(result).toStrictEqual({
           success: false,
@@ -440,7 +446,10 @@ describe("panda class", function () {
 
     it.each([
       ["data is not base64", `not-base64-data.${sampleCookie.split(".")[1]}`],
-      ["signature is not base64", `${sampleCookie.split(".")[0]}.not-base64-sig`],
+      [
+        "signature is not base64",
+        `${sampleCookie.split(".")[0]}.not-base64-sig`,
+      ],
       ["there is no dot separator", sampleCookie.replace(".", "")],
       ["there are multiple dot separators", sampleCookie.replace(".", "..")],
     ])("should fail with invalid-cookie if %s", async (_name, badCookie) => {
