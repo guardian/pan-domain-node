@@ -45,20 +45,24 @@ const isAlsoAcceptedKey = (key: string): boolean =>
 
 export function parseKeysFromIni(pandaConfigIni: string): PublicKeyHolder {
   const config = ini.parse(pandaConfigIni);
-  const maybePublicKey = config.publicKey;
-  if (!maybePublicKey) {
+  const maybePublicKeyString = config.publicKey;
+  if (!maybePublicKeyString) {
     console.log(
       `Failed to retrieve panda public key from ${JSON.stringify(config)}`,
     );
     throw new Error("Missing publicKey setting from config");
   }
 
-  const alsoAcceptedKeys: KeyObject[] = Object.entries(config)
+  const alsoAcceptedKeyStrings: KeyObject[] = Object.entries(config)
     .filter(([key, _value]) => isAlsoAcceptedKey(key))
-    .map(([_key, value]) => toKeyObject(value));
+    .map(([_key, value]) => value);
+
+  const keys = [maybePublicKeyString, ...alsoAcceptedKeyStrings].map(
+    toKeyObject,
+  );
 
   return {
-    keys: [toKeyObject(config.publicKey), ...alsoAcceptedKeys],
+    keys,
     lastUpdated: new Date(),
   };
 }
