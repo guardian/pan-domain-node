@@ -18,33 +18,6 @@ export function toKeyObject(publicKeyString: string): crypto.KeyObject {
   );
 }
 
-export function httpGet(path: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const data: string[] = [];
-
-    https.get(path, (res) => {
-      res.on("data", (chunk) => data.push(chunk.toString("utf8")));
-      res.on("error", (err) => reject(err));
-
-      res.on("end", () => {
-        const body = data.join("");
-
-        if (res.statusCode == 200) {
-          resolve(body);
-        } else {
-          // Response might be XML
-          const match = body.match(/<message>(.*)<\/message>/i);
-          const error = new Error(
-            match ? match[1] : "Invalid public key response",
-          );
-
-          reject(error);
-        }
-      });
-    });
-  });
-}
-
 export function parseUser(data: string): User {
   const params = new URLSearchParams(data);
 
