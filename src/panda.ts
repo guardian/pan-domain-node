@@ -173,7 +173,12 @@ export class PanDomainAuthentication {
 
     this.keyUpdateTimer = setInterval(
       () => this.getPublicKey(),
-      this.keyCacheTimeInMillis,
+      /**
+       * If the cache is stale after N seconds, and the check-fetch-and-set cycle takes R seconds to complete, then we need to wait N + R seconds between checks.
+       * If we triggered the cycle every N seconds, it would always see a value that has R seconds left before it's stale.
+       * The round-trip to S3 shouldn't take longer than 1s, so let's add 1s to the cache time.
+       * */
+      this.keyCacheTimeInMillis + 1000,
     );
   }
 
