@@ -7,11 +7,15 @@ export interface PublicKeyHolder {
   lastUpdated: Date;
 }
 
-export function fetchPublicKey(
-  s3: S3,
-  bucket: string,
-  keyFile: string,
-): Promise<PublicKeyHolder> {
+export function fetchPublicKey({
+  s3,
+  bucket,
+  keyFile,
+}: {
+  s3: S3;
+  bucket: string;
+  keyFile: string;
+}): Promise<PublicKeyHolder> {
   const publicKeyLocation = {
     Bucket: bucket,
     Key: keyFile,
