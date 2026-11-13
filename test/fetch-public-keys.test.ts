@@ -52,6 +52,15 @@ describe("parseKeysFromIni", () => {
     expect(() => parseKeysFromIni("publicKey=notAKey")).toThrow();
   });
 
+  it("should throw if an also accepted key is not a valid public key", () => {
+    const iniString = [
+      `publicKey=${a}`,
+      "alsoAccept.0.publicKey=notAKey",
+    ].join("\n");
+
+    expect(() => parseKeysFromIni(iniString)).toThrow();
+  });
+
   it("should throw an error if the publicKey is missing", () => {
     const iniString = "someOtherKey=someValue";
 

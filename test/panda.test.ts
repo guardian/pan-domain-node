@@ -16,7 +16,7 @@ import {
 } from "../src/panda";
 
 import { CookiePayload, decodeBase64 } from "../src/cookiePayload";
-import { parseUser } from "../src/utils";
+import { calculateKeyObjectHashId, parseUser } from "../src/utils";
 import {
   generatePublicKey,
   privateKey,
@@ -131,6 +131,21 @@ describe("validateVerifiedPayload", function () {
     ).toStrictEqual(expected);
   });
 
+  test("return unknown if the verified payload cannot be parsed into a user", () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation();
+    expect(
+      validateVerifiedPayload(
+        "firstName=Test",
+        new Date(0),
+        guardianValidation,
+      ),
+    ).toStrictEqual({
+      success: false,
+      reason: "unknown",
+    });
+    errorSpy.mockRestore();
+  });
+
   test("fail to authenticate if user fails validation function, even within the grace period", () => {
     const user = userFromCookie(sampleCookieWithoutMultifactor);
     const withinGracePeriod = new Date(user.expires + 1);
@@ -228,13 +243,13 @@ describe("panda class", function () {
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mockResolvedValue({ keys: [keyTwo], lastUpdated: fiveMinsAgo });
 
+      await expect(panda.getPublicKeys()).resolves.toStrictEqual([keyTwo]);
+
       const fetchesAfter = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mock.calls.length;
 
-      await expect(panda.getPublicKeys()).resolves.toStrictEqual([keyTwo]);
-
-      expect(fetchesAfter).toEqual(fetchesBefore + 1);
+      expect(fetchesAfter).toEqual(fetchesBefore + 2);
     });
 
     it("throws if fetchPublicKey fails as part of initialisation via builder method", async () => {
@@ -372,7 +387,6 @@ describe("panda class", function () {
 
     it("should authenticate if one of the available public keys is valid", async () => {
       jest.setSystemTime(100);
-      jest.clearAllMocks();
       (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mockResolvedValue({
@@ -416,12 +430,17 @@ describe("panda class", function () {
     it("should fail with invalid-cookie if the signature is malformed", async () => {
       jest.setSystemTime(100);
       const panda = await createDefaultPandaWith();
-      const [data] = sampleCookie.split(".");
+      const [data, validSignature] = sampleCookie.split(".");
+      // Swap the leading characters for other valid base64 so the cookie
+      // still parses, and must be rejected by signature verification
+      const alteredSignature =
+        (validSignature.startsWith("AAAA") ? "BBBB" : "AAAA") +
+        validSignature.slice(4);
 
-      for (const signature of [
-        "1234",
-        sampleCookie.split(".")[1].slice(0, -2),
-      ]) {
+      for (const signature of ["1234", alteredSignature]) {
+        expect(
+          CookiePayload.fromCookieText(`${data}.${signature}`),
+        ).toBeDefined();
         const result = await panda.verify(`cookiename=${data}.${signature}`);
         expect(result).toStrictEqual({
           success: false,
@@ -660,6 +679,49 @@ describe("panda class", function () {
       ).mock.calls.length;
 
       expect(fetchesAfter).toBeGreaterThan(fetchesBefore);
+    });
+
+    it("should accept cookies signed by newly added keys and reject those signed by removed keys after a refresh", async () => {
+      jest.setSystemTime(100);
+      const otherKey = generatePublicKey();
+      const mockFetch = fetchPublicKey as jest.MockedFunction<
+        typeof fetchPublicKey
+      >;
+      mockFetch.mockResolvedValue({
+        keys: [otherKey],
+        lastUpdated: new Date(),
+      });
+
+      const panda = await createDefaultPandaWith();
+      panda.stop();
+      const cookieHeader = `cookiename=${sampleCookie}`;
+      const cacheExpiry = panda.keyCacheTimeInMillis + 1;
+
+      await expect(panda.verify(cookieHeader)).resolves.toMatchObject({
+        success: false,
+        reason: "invalid-cookie",
+      });
+
+      // Signing key is added as an alsoAccept key
+      mockFetch.mockResolvedValue({
+        keys: [otherKey, publicKey[0]],
+        lastUpdated: new Date(),
+      });
+      jest.setSystemTime(Date.now() + cacheExpiry);
+      await expect(panda.verify(cookieHeader)).resolves.toMatchObject({
+        success: true,
+      });
+
+      // Signing key is removed again
+      mockFetch.mockResolvedValue({
+        keys: [otherKey],
+        lastUpdated: new Date(),
+      });
+      jest.setSystemTime(Date.now() + cacheExpiry);
+      await expect(panda.verify(cookieHeader)).resolves.toMatchObject({
+        success: false,
+        reason: "invalid-cookie",
+      });
     });
 
     it("should use the cached key when 'verify' is called if the cache time has not elapsed", async () => {

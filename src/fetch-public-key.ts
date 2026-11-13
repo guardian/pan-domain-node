@@ -53,7 +53,7 @@ export function parseKeysFromIni(pandaConfigIni: string): PublicKeyHolder {
     throw new Error("Missing publicKey setting from config");
   }
 
-  const alsoAcceptedKeyStrings: KeyObject[] = Object.entries(config)
+  const alsoAcceptedKeyStrings: string[] = Object.entries(config)
     .filter(([key, _value]) => isAlsoAcceptedKey(key))
     .map(([_key, value]) => value);
 
