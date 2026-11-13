@@ -1,4 +1,5 @@
 import * as cookie from "cookie";
+import * as crypto from "crypto";
 
 import { S3 } from "@aws-sdk/client-s3";
 import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
@@ -11,7 +12,13 @@ import {
 } from "./api";
 import { fetchPublicKey, PublicKeyHolder } from "./fetch-public-key";
 import { getErrorMessage } from "./getErrorMessage";
-import { parseCookie, parseUser, sign, verifySignature } from "./utils";
+import {
+  calculateKeyObjectHashId,
+  logKeyDiffs,
+  parseUser,
+  sign,
+} from "./utils";
+import { CookiePayload } from "./cookiePayload";
 
 export function createCookie(user: User, privateKey: string): string {
   let queryParams: string[] = [];
@@ -33,39 +40,15 @@ export function createCookie(user: User, privateKey: string): string {
   return queryParamsString + "." + signature;
 }
 
-export function verifyUser(
-  pandaCookie: string | undefined,
-  publicKey: string,
+export function validateVerifiedPayload(
+  pandaCookieData: string,
   currentTime: Date,
   validateUser: ValidateUserFn,
 ): AuthenticationResult {
-  if (!pandaCookie) {
-    return {
-      success: false,
-      reason: "no-cookie",
-    };
-  }
-
-  const parsedCookie = parseCookie(pandaCookie);
-  if (!parsedCookie) {
-    return {
-      success: false,
-      reason: "invalid-cookie",
-    };
-  }
-  const { data, signature } = parsedCookie;
-
-  if (!verifySignature(data, signature, publicKey)) {
-    return {
-      success: false,
-      reason: "invalid-cookie",
-    };
-  }
-
   const currentTimestampInMillis = currentTime.getTime();
 
   try {
-    const user: User = parseUser(data);
+    const user: User = parseUser(pandaCookieData);
     const isExpired = user.expires < currentTimestampInMillis;
 
     if (!validateUser(user)) {
@@ -172,7 +155,7 @@ export class PanDomainAuthentication {
     this.s3Client = s3Client;
 
     this.keyUpdateTimer = setInterval(
-      () => this.getPublicKey(),
+      () => this.getPublicKeys(),
       /**
        * If the cache is stale after N seconds, and the check-fetch-and-set cycle takes R seconds to complete, then we need to wait N + R seconds between checks.
        * If we triggered the cycle every N seconds, it would always see a value that has R seconds left before it's stale.
@@ -190,7 +173,7 @@ export class PanDomainAuthentication {
     }
   }
 
-  async getPublicKey(): Promise<string> {
+  async getPublicKeys(): Promise<crypto.KeyObject[]> {
     const publicKeyHolder = this.publicKey;
     const now = new Date();
     const diff = now.getTime() - publicKeyHolder.lastUpdated.getTime();
@@ -202,29 +185,78 @@ export class PanDomainAuthentication {
           bucket: this.bucket,
           keyFile: this.keyFile,
         });
-        const { key } = newKeyHolder;
+        const { keys } = newKeyHolder;
         this.publicKey = newKeyHolder;
 
-        return key;
+        logKeyDiffs(publicKeyHolder.keys, keys);
+
+        return keys;
       } catch (error) {
         console.error(
           `Error fetching public key from S3, falling back to cached key. Error: ${getErrorMessage(
             error,
           )}`,
         );
-        return publicKeyHolder.key;
+        return publicKeyHolder.keys;
       }
     } else {
-      return publicKeyHolder.key;
+      return publicKeyHolder.keys;
     }
+  }
+
+  async decode<T>(
+    f: (publicKey: crypto.KeyObject) => T | undefined | Promise<T | undefined>,
+  ): Promise<T | undefined> {
+    const publicKeys = await this.getPublicKeys();
+    for (const key of publicKeys) {
+      try {
+        const result = await f(key);
+        if (result !== undefined) {
+          console.log(
+            `Successfully decoded with one of the public keys. Key hash: ${calculateKeyObjectHashId(
+              key,
+            )}`,
+          );
+          return result;
+        }
+      } catch (error) {
+        console.error(
+          `Error decoding with public key ${calculateKeyObjectHashId(
+            key,
+          )}: ${getErrorMessage(error)}`,
+        );
+      }
+    }
+    return undefined;
   }
 
   async verify(
     requestCookies: string | undefined,
   ): Promise<AuthenticationResult> {
-    const publicKey = await this.getPublicKey();
     const cookies = cookie.parse(requestCookies ?? "");
     const pandaCookie = cookies[this.cookieName];
-    return verifyUser(pandaCookie, publicKey, new Date(), this.validateUser);
+    if (!pandaCookie) {
+      return {
+        success: false,
+        reason: "no-cookie",
+      };
+    }
+    const cookiePayload = CookiePayload.fromCookieText(pandaCookie);
+    if (cookiePayload === undefined) {
+      return {
+        success: false,
+        reason: "invalid-cookie",
+      };
+    }
+    const maybeVerifiedData = await this.decode((key) =>
+      cookiePayload.payloadTextVerifiedSignedWith(key),
+    );
+    if (maybeVerifiedData === undefined) {
+      return {
+        success: false,
+        reason: "invalid-cookie",
+      };
+    }
+    return validateVerifiedPayload(maybeVerifiedData, new Date(), this.validateUser);
   }
 }

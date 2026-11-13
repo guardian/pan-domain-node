@@ -12,16 +12,13 @@ import {
   BuilderParams,
   createCookie,
   PanDomainAuthentication,
-  verifyUser,
+  validateVerifiedPayload,
 } from "../src/panda";
 
+import { CookiePayload, decodeBase64 } from "../src/cookiePayload";
+import { parseUser } from "../src/utils";
 import {
-  decodeBase64,
-  parseCookie,
-  ParsedCookie,
-  parseUser,
-} from "../src/utils";
-import {
+  generatePublicKey,
   privateKey,
   publicKey,
   sampleCookie,
@@ -31,13 +28,15 @@ import {
 
 jest.mock("../src/fetch-public-key");
 
+/**
+ * We're casting `as CookiePayload` here because the function is only for parsing valid cookies
+ */
+function cookieData(cookie: string): string {
+  return (CookiePayload.fromCookieText(cookie) as CookiePayload).data;
+}
+
 function userFromCookie(cookie: string): User {
-  // This function is only used to generate a `User` object from
-  // a well-formed text fixture cookie, in order to check that successful
-  // `AuthenticationResult`s have the right shape. As such we don't want
-  // to have to deal with the case of a bad cookie so we just cast to `ParsedCookie`.
-  const parsedCookie = parseCookie(cookie) as ParsedCookie;
-  return parseUser(parsedCookie.data);
+  return parseUser(cookieData(cookie));
 }
 
 async function createDefaultPandaWith(
@@ -56,30 +55,8 @@ async function createDefaultPandaWith(
   });
 }
 
-describe("verifyUser", function () {
-  test("fail to authenticate if cookie is missing", () => {
-    const expected: CookieFailure = {
-      success: false,
-      reason: "no-cookie",
-    };
-    expect(
-      verifyUser(undefined, "", new Date(0), guardianValidation),
-    ).toStrictEqual(expected);
-  });
-
-  test("fail to authenticate if signature is malformed", () => {
-    const [data, signature] = sampleCookie.split(".");
-    const testCookie = data + ".1234";
-
-    const expected: CookieFailure = {
-      success: false,
-      reason: "invalid-cookie",
-    };
-    expect(
-      verifyUser(testCookie, publicKey, new Date(0), guardianValidation),
-    ).toStrictEqual(expected);
-  });
-
+describe("validateVerifiedPayload", function () {
+  // validateVerifiedPayload receives cookie data whose signature has already been verified
   test("fail to authenticate if cookie expired and we're outside the grace period", () => {
     // Cookie expires at epoch time 1234
     const afterEndOfGracePeriod = new Date(1234 + gracePeriodInMillis + 1);
@@ -88,9 +65,8 @@ describe("verifyUser", function () {
       reason: "expired-cookie",
     };
     expect(
-      verifyUser(
-        sampleCookie,
-        publicKey,
+      validateVerifiedPayload(
+        cookieData(sampleCookie),
         afterEndOfGracePeriod,
         guardianValidation,
       ),
@@ -99,9 +75,8 @@ describe("verifyUser", function () {
 
   test("fail to authenticate if user fails validation function", () => {
     expect(
-      verifyUser(
-        sampleCookieWithoutMultifactor,
-        publicKey,
+      validateVerifiedPayload(
+        cookieData(sampleCookieWithoutMultifactor),
         new Date(0),
         guardianValidation,
       ),
@@ -111,9 +86,8 @@ describe("verifyUser", function () {
       user: userFromCookie(sampleCookieWithoutMultifactor),
     });
     expect(
-      verifyUser(
-        sampleNonGuardianCookie,
-        publicKey,
+      validateVerifiedPayload(
+        cookieData(sampleNonGuardianCookie),
         new Date(0),
         guardianValidation,
       ),
@@ -124,70 +98,6 @@ describe("verifyUser", function () {
     });
   });
 
-  test("fail to authenticate with invalid-cookie reason if signature is not valid", () => {
-    const expected: CookieFailure = {
-      success: false,
-      reason: "invalid-cookie",
-    };
-    const slightlyBadCookie = sampleCookie.slice(0, -2);
-    expect(
-      verifyUser(slightlyBadCookie, publicKey, new Date(0), guardianValidation),
-    ).toStrictEqual(expected);
-  });
-
-  test("fail to authenticate with invalid-cookie reason if data part is not base64", () => {
-    const expected: CookieFailure = {
-      success: false,
-      reason: "invalid-cookie",
-    };
-    const [_, signature] = sampleCookie.split(".");
-    const nonBase64Data = "not-base64-data";
-    const testCookie = `${nonBase64Data}.${signature}`;
-    expect(
-      verifyUser(testCookie, publicKey, new Date(0), guardianValidation),
-    ).toStrictEqual(expected);
-  });
-
-  test("fail to authenticate with invalid-cookie reason if signature part is not base64", () => {
-    const expected: CookieFailure = {
-      success: false,
-      reason: "invalid-cookie",
-    };
-    const [data, _] = sampleCookie.split(".");
-    const nonBase64Signature = "not-base64-signature";
-    const testCookie = `${data}.${nonBase64Signature}`;
-    expect(
-      verifyUser(testCookie, publicKey, new Date(0), guardianValidation),
-    ).toStrictEqual(expected);
-  });
-
-  test("fail to authenticate with invalid-cookie reason if cookie has no dot separator", () => {
-    const expected: CookieFailure = {
-      success: false,
-      reason: "invalid-cookie",
-    };
-    const noDotCookie = sampleCookie.replace(".", "");
-    expect(
-      verifyUser(noDotCookie, publicKey, new Date(0), guardianValidation),
-    ).toStrictEqual(expected);
-  });
-
-  test("fail to authenticate with invalid-cookie reason if cookie has multiple dot separators", () => {
-    const expected: CookieFailure = {
-      success: false,
-      reason: "invalid-cookie",
-    };
-    const multipleDotsCookie = sampleCookie.replace(".", "..");
-    expect(
-      verifyUser(
-        multipleDotsCookie,
-        publicKey,
-        new Date(0),
-        guardianValidation,
-      ),
-    ).toStrictEqual(expected);
-  });
-
   test("authenticate if the cookie and user are valid", () => {
     const expected: FreshSuccess = {
       success: true,
@@ -196,7 +106,11 @@ describe("verifyUser", function () {
       user: userFromCookie(sampleCookie),
     };
     expect(
-      verifyUser(sampleCookie, publicKey, new Date(0), guardianValidation),
+      validateVerifiedPayload(
+        cookieData(sampleCookie),
+        new Date(0),
+        guardianValidation,
+      ),
     ).toStrictEqual(expected);
   });
 
@@ -209,13 +123,28 @@ describe("verifyUser", function () {
       mustRefreshByEpochTimeMillis: 1234 + gracePeriodInMillis,
     };
     expect(
-      verifyUser(
-        sampleCookie,
-        publicKey,
+      validateVerifiedPayload(
+        cookieData(sampleCookie),
         beforeEndOfGracePeriod,
         guardianValidation,
       ),
     ).toStrictEqual(expected);
+  });
+
+  test("fail to authenticate if user fails validation function, even within the grace period", () => {
+    const user = userFromCookie(sampleCookieWithoutMultifactor);
+    const withinGracePeriod = new Date(user.expires + 1);
+    expect(
+      validateVerifiedPayload(
+        cookieData(sampleCookieWithoutMultifactor),
+        withinGracePeriod,
+        guardianValidation,
+      ),
+    ).toStrictEqual({
+      success: false,
+      reason: "invalid-user",
+      user,
+    });
   });
 });
 
@@ -239,12 +168,15 @@ describe("createCookie", function () {
 });
 
 describe("panda class", function () {
+  const keyOne = generatePublicKey();
+  const keyTwo = generatePublicKey();
+
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     (
       fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-    ).mockResolvedValue({ key: "PUBLIC KEY", lastUpdated: new Date() });
+    ).mockResolvedValue({ keys: [keyOne], lastUpdated: new Date() });
   });
   afterEach(() => {
     jest.runOnlyPendingTimers();
@@ -260,14 +192,14 @@ describe("panda class", function () {
     });
   });
 
-  describe("getPublicKey", () => {
-    it("getsPublicKey immediately when last fetch is within the cache time", async () => {
+  describe("getPublicKeys", () => {
+    it("getsPublicKeys immediately when last fetch is within the cache time", async () => {
       const panda = await createDefaultPandaWith();
       const fetchesBeforeGet = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mock.calls.length;
 
-      await expect(panda.getPublicKey()).resolves.toEqual("PUBLIC KEY");
+      await expect(panda.getPublicKeys()).resolves.toStrictEqual([keyOne]);
       const fetchesAfterGet = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mock.calls.length;
@@ -282,7 +214,7 @@ describe("panda class", function () {
 
       (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ key: "PUBLIC KEY", lastUpdated: fiveMinsAgo });
+      ).mockResolvedValue({ keys: [keyOne], lastUpdated: fiveMinsAgo });
 
       const panda = await createDefaultPandaWith();
 
@@ -290,17 +222,17 @@ describe("panda class", function () {
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mock.calls.length;
 
-      await expect(panda.getPublicKey()).resolves.toEqual("PUBLIC KEY");
+      await expect(panda.getPublicKeys()).resolves.toStrictEqual([keyOne]);
 
       (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ key: "PUBLIC KEY 2", lastUpdated: fiveMinsAgo });
+      ).mockResolvedValue({ keys: [keyTwo], lastUpdated: fiveMinsAgo });
 
       const fetchesAfter = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mock.calls.length;
 
-      await expect(panda.getPublicKey()).resolves.toEqual("PUBLIC KEY 2");
+      await expect(panda.getPublicKeys()).resolves.toStrictEqual([keyTwo]);
 
       expect(fetchesAfter).toEqual(fetchesBefore + 1);
     });
@@ -322,7 +254,7 @@ describe("panda class", function () {
 
       (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ key: "PUBLIC KEY", lastUpdated: fiveMinsAgo });
+      ).mockResolvedValue({ keys: [keyOne], lastUpdated: fiveMinsAgo });
 
       const panda = await createDefaultPandaWith();
 
@@ -334,7 +266,7 @@ describe("panda class", function () {
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
       ).mockRejectedValue(new Error("Failed to fetch public key"));
 
-      await expect(panda.getPublicKey()).resolves.toEqual("PUBLIC KEY");
+      await expect(panda.getPublicKeys()).resolves.toStrictEqual([keyOne]);
 
       const fetchesAfter = (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
@@ -344,11 +276,66 @@ describe("panda class", function () {
     });
   });
 
+  describe("decode", () => {
+    it("returns the first defined result and stops trying further keys", async () => {
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockResolvedValue({
+        keys: [keyOne, keyTwo, generatePublicKey()],
+        lastUpdated: new Date(),
+      });
+      const panda = await createDefaultPandaWith();
+      const f = jest.fn((key) => (key === keyTwo ? "found" : undefined));
+
+      await expect(panda.decode(f)).resolves.toBe("found");
+      expect(f).toHaveBeenCalledTimes(2);
+    });
+
+    it("treats a throwing callback as a failure for that key and carries on", async () => {
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockResolvedValue({ keys: [keyOne, keyTwo], lastUpdated: new Date() });
+      const panda = await createDefaultPandaWith();
+      const errorSpy = jest.spyOn(console, "error").mockImplementation();
+
+      const result = await panda.decode((key) => {
+        if (key === keyOne) throw new Error("boom");
+        return "ok";
+      });
+
+      expect(result).toBe("ok");
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("boom"));
+      errorSpy.mockRestore();
+    });
+
+    it("awaits async callbacks rather than accepting the first promise", async () => {
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockResolvedValue({ keys: [keyOne, keyTwo], lastUpdated: new Date() });
+      const panda = await createDefaultPandaWith();
+
+      const result = await panda.decode(async (key) =>
+        key === keyTwo ? "second" : undefined,
+      );
+      expect(result).toBe("second");
+    });
+
+    it("returns undefined if no key yields a result", async () => {
+      const panda = await createDefaultPandaWith();
+      await expect(panda.decode(() => undefined)).resolves.toBeUndefined();
+    });
+
+    it("returns falsy-but-defined results", async () => {
+      const panda = await createDefaultPandaWith();
+      await expect(panda.decode(() => "")).resolves.toBe("");
+    });
+  });
+
   describe("verify", () => {
     beforeEach(() => {
       (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ key: publicKey, lastUpdated: new Date() });
+      ).mockResolvedValue({ keys: publicKey, lastUpdated: new Date() });
     });
 
     it("should authenticate if cookie and user are valid", async () => {
@@ -381,6 +368,98 @@ describe("panda class", function () {
         user: userFromCookie(sampleCookie),
       };
       expect(authenticationResult).toStrictEqual(expected);
+    });
+
+    it("should authenticate if one of the available public keys is valid", async () => {
+      jest.setSystemTime(100);
+      jest.clearAllMocks();
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockResolvedValue({
+        keys: [generatePublicKey(), publicKey[0]],
+        lastUpdated: new Date(),
+      });
+      const panda = await createDefaultPandaWith();
+      const authenticationResult = await panda.verify(
+        `cookiename=${sampleCookie}`,
+      );
+
+      const expected: FreshSuccess = {
+        success: true,
+        // Cookie is not expired
+        shouldRefreshCredentials: false,
+        user: userFromCookie(sampleCookie),
+      };
+      expect(authenticationResult).toStrictEqual(expected);
+    });
+
+    it("should fail with invalid-cookie if the signature was made with none of the available keys", async () => {
+      jest.setSystemTime(100);
+      (
+        fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
+      ).mockResolvedValue({
+        keys: [generatePublicKey(), generatePublicKey()],
+        lastUpdated: new Date(),
+      });
+      const panda = await createDefaultPandaWith();
+      const authenticationResult = await panda.verify(
+        `cookiename=${sampleCookie}`,
+      );
+
+      const expected: CookieFailure = {
+        success: false,
+        reason: "invalid-cookie",
+      };
+      expect(authenticationResult).toStrictEqual(expected);
+    });
+
+    it("should fail with invalid-cookie if the signature is malformed", async () => {
+      jest.setSystemTime(100);
+      const panda = await createDefaultPandaWith();
+      const [data] = sampleCookie.split(".");
+
+      for (const signature of [
+        "1234",
+        sampleCookie.split(".")[1].slice(0, -2),
+      ]) {
+        const result = await panda.verify(`cookiename=${data}.${signature}`);
+        expect(result).toStrictEqual({
+          success: false,
+          reason: "invalid-cookie",
+        });
+      }
+    });
+
+    it("should fail with invalid-cookie if the data has been tampered with", async () => {
+      jest.setSystemTime(100);
+      const panda = await createDefaultPandaWith();
+      // Valid signature for the multifactor cookie, but data from the non-multifactor one
+      const [, signature] = sampleCookie.split(".");
+      const [otherData] = sampleCookieWithoutMultifactor.split(".");
+
+      const result = await panda.verify(`cookiename=${otherData}.${signature}`);
+      expect(result).toStrictEqual({
+        success: false,
+        reason: "invalid-cookie",
+      });
+    });
+
+    it.each([
+      ["data is not base64", `not-base64-data.${sampleCookie.split(".")[1]}`],
+      [
+        "signature is not base64",
+        `${sampleCookie.split(".")[0]}.not-base64-sig`,
+      ],
+      ["there is no dot separator", sampleCookie.replace(".", "")],
+      ["there are multiple dot separators", sampleCookie.replace(".", "..")],
+    ])("should fail with invalid-cookie if %s", async (_name, badCookie) => {
+      jest.setSystemTime(100);
+      const panda = await createDefaultPandaWith();
+      const result = await panda.verify(`cookiename=${badCookie}`);
+      expect(result).toStrictEqual({
+        success: false,
+        reason: "invalid-cookie",
+      });
     });
 
     it("should fail to authenticate if cookie expired and we're outside the grace period", async () => {
@@ -528,7 +607,7 @@ describe("panda class", function () {
     beforeEach(() => {
       (
         fetchPublicKey as jest.MockedFunction<typeof fetchPublicKey>
-      ).mockResolvedValue({ key: publicKey, lastUpdated: new Date() });
+      ).mockResolvedValue({ keys: publicKey, lastUpdated: new Date() });
     });
 
     it("should refresh the public key on a schedule", async () => {
