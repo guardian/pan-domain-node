@@ -1,7 +1,7 @@
 import { S3 } from "@aws-sdk/client-s3";
 import * as ini from "ini";
 import { toKeyObject } from "./utils";
-import { KeyObject } from "crypto";
+import { KeyObject } from "node:crypto";
 
 export interface PublicKeyHolder {
   keys: KeyObject[];

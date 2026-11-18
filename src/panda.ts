@@ -1,5 +1,5 @@
 import * as cookie from "cookie";
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 
 import { S3 } from "@aws-sdk/client-s3";
 import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
@@ -257,6 +257,10 @@ export class PanDomainAuthentication {
         reason: "invalid-cookie",
       };
     }
-    return validateVerifiedPayload(maybeVerifiedData, new Date(), this.validateUser);
+    return validateVerifiedPayload(
+      maybeVerifiedData,
+      new Date(),
+      this.validateUser,
+    );
   }
 }

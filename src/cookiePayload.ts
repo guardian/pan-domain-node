@@ -1,4 +1,4 @@
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 
 export function decodeBase64(data: string): string {
   return Buffer.from(data, "base64").toString("utf8");
